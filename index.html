@@ -1,0 +1,954 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Dad's BBQ Command Center</title>
+<style>
+  /* =======================================================================
+     CONFIG — change DAD_NAME in the <script> below. No internet required.
+     ======================================================================= */
+  :root {
+    --bg: #0c0a09; --bg-soft: #16110f; --panel: #1c1613; --panel-2: #241b16;
+    --border: #3a2d24; --border-soft: #2a201a;
+    --text: #f6efe9; --text-dim: #b6a596; --text-faint: #8a7868;
+    --ember: #ff7a2f; --ember-2: #ffb347; --ember-glow: rgba(255,122,47,0.35);
+    --green: #8fd14f; --blue: #6ea8fe; --red: #ff6b5e;
+    --radius: 16px; --shadow: 0 20px 60px rgba(0,0,0,0.5);
+    --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; min-height: 100%; }
+  body {
+    font-family: var(--font);
+    background:
+      radial-gradient(1100px 600px at 85% -10%, rgba(255,179,71,0.10), transparent 60%),
+      radial-gradient(900px 600px at -5% 5%, rgba(255,122,47,0.10), transparent 55%), var(--bg);
+    color: var(--text); -webkit-font-smoothing: antialiased;
+  }
+  button, input, select { font-family: inherit; }
+  ::selection { background: rgba(255,122,47,0.3); }
+  ::-webkit-scrollbar { width: 10px; }
+  ::-webkit-scrollbar-thumb { background: #3a2d24; border-radius: 8px; border: 2px solid var(--bg); }
+  .wrap { max-width: 940px; margin: 0 auto; padding: 0 20px 80px; }
+
+  /* Header */
+  .ribbon { text-align:center; font-size:13px; padding:9px 12px; color:#ffe9cf;
+    background: linear-gradient(90deg, rgba(255,122,47,.16), rgba(255,179,71,.16));
+    border-bottom: 1px solid var(--border-soft); letter-spacing:.3px; }
+  .ribbon b { color:#ffd9ad; }
+  header.hero { text-align:center; padding: 38px 0 20px; }
+  .badge { display:inline-flex; align-items:center; gap:8px; font-size:12.5px; font-weight:700;
+    letter-spacing:1.5px; text-transform:uppercase; color:var(--ember-2);
+    border:1px solid var(--border); border-radius:30px; padding:7px 16px; background:var(--panel); }
+  h1 { font-family:var(--serif); font-size:40px; margin:18px 0 6px; letter-spacing:.4px; }
+  h1 .fire { filter: drop-shadow(0 0 14px var(--ember-glow)); }
+  .tagline { color:var(--text-dim); font-size:16px; margin:0; }
+
+  /* Tabs */
+  .tabs { display:flex; gap:8px; justify-content:center; margin:26px 0 22px; flex-wrap:wrap; }
+  .tab { background:var(--panel); border:1px solid var(--border); color:var(--text-dim);
+    padding:10px 18px; border-radius:30px; font-size:14px; font-weight:600; cursor:pointer; transition:all .15s; }
+  .tab:hover { color:var(--text); border-color:#4a382c; }
+  .tab.active { background: linear-gradient(135deg, var(--ember), var(--ember-2)); color:#1a0f07; border-color:transparent; box-shadow:0 8px 24px var(--ember-glow); }
+  .view { display:none; animation: rise .4s ease; }
+  .view.active { display:block; }
+
+  /* Controls */
+  .controls { background: linear-gradient(180deg, var(--panel), var(--panel-2)); border:1px solid var(--border);
+    border-radius:20px; padding:22px; box-shadow:var(--shadow); }
+  .control-grid { display:grid; grid-template-columns:1fr 1fr; gap:18px; }
+  .field { display:flex; flex-direction:column; gap:8px; }
+  .field label { font-size:13px; font-weight:700; color:var(--text-dim); letter-spacing:.3px; }
+  .field input, .field select, .pickwrap select {
+    background:var(--bg-soft); border:1px solid var(--border); color:var(--text);
+    border-radius:12px; padding:13px 14px; font-size:15px; outline:none; transition:border-color .2s, box-shadow .2s; width:100%; }
+  .field input:focus, .field select:focus, .pickwrap select:focus { border-color:var(--ember); box-shadow:0 0 0 3px var(--ember-glow); }
+
+  .meat-picker { display:grid; grid-template-columns: repeat(4,1fr); gap:10px; margin-top:4px; }
+  .meat-btn { background:var(--bg-soft); border:1px solid var(--border); border-radius:14px; padding:14px 8px;
+    cursor:pointer; text-align:center; transition:all .14s; color:var(--text-dim); }
+  .meat-btn:hover { transform:translateY(-2px); border-color:#4a382c; color:var(--text); }
+  .meat-btn.sel { border-color:var(--ember); background:rgba(255,122,47,.12); color:var(--text); box-shadow:0 0 0 1px var(--ember) inset; }
+  .meat-btn .e { font-size:26px; display:block; }
+  .meat-btn .n { font-size:12px; font-weight:600; margin-top:6px; line-height:1.25; }
+  .pickwrap { margin-top:12px; position:relative; }
+  .pickwrap select { appearance:none; cursor:pointer; }
+  .pickwrap .car { position:absolute; right:16px; top:50%; transform:translateY(-50%); pointer-events:none; color:var(--text-faint); }
+  .pickwrap select.active { border-color:var(--ember); color:var(--ember-2); font-weight:700; }
+
+  .seg { display:flex; gap:6px; background:var(--bg-soft); border:1px solid var(--border); border-radius:12px; padding:5px; flex-wrap:wrap; }
+  .seg button { flex:1; min-width:64px; background:transparent; border:none; color:var(--text-dim); padding:9px 6px; border-radius:8px;
+    font-size:13.5px; font-weight:600; cursor:pointer; transition:all .15s; }
+  .seg button.on { background: linear-gradient(135deg, var(--ember), var(--ember-2)); color:#1a0f07; }
+  .seg button:disabled { cursor:default; }
+  .hidden { display:none !important; }
+  .helper { font-size:12.5px; color:var(--text-faint); margin-top:6px; line-height:1.5; }
+  .linklike { color:var(--ember-2); cursor:pointer; font-weight:700; text-decoration:underline; }
+
+  /* Summary + banner */
+  .summary { display:grid; grid-template-columns: repeat(4,1fr); gap:12px; margin:22px 0; }
+  .stat { background:var(--panel); border:1px solid var(--border); border-radius:14px; padding:16px; text-align:center; }
+  .stat .v { font-size:23px; font-weight:800; color:var(--ember-2); font-family:var(--serif); }
+  .stat .l { font-size:11px; color:var(--text-faint); text-transform:uppercase; letter-spacing:.7px; margin-top:4px; }
+  .start-banner { display:flex; align-items:center; gap:14px;
+    background: linear-gradient(135deg, rgba(255,122,47,.16), rgba(255,179,71,.10));
+    border:1px solid var(--ember); border-radius:16px; padding:18px 20px; margin:20px 0; }
+  .start-banner .ico { font-size:30px; }
+  .start-banner .big { font-size:20px; font-weight:800; }
+  .start-banner .small { color:var(--text-dim); font-size:13.5px; margin-top:2px; }
+
+  .row-actions { display:flex; gap:10px; flex-wrap:wrap; margin:4px 0 6px; }
+  .mini-btn { background:var(--panel); border:1px solid var(--border); color:var(--text-dim); border-radius:10px;
+    padding:9px 14px; font-size:13px; font-weight:600; cursor:pointer; transition:all .15s; }
+  .mini-btn:hover { color:var(--text); border-color:#4a382c; }
+
+  /* Timeline */
+  .timeline { position:relative; margin:24px 0 0; padding-left:8px; }
+  .step { position:relative; padding:0 0 26px 38px; }
+  .step::before { content:""; position:absolute; left:11px; top:22px; bottom:-4px; width:2px; background:var(--border); }
+  .step:last-child::before { display:none; }
+  .step .dot { position:absolute; left:0; top:2px; width:24px; height:24px; border-radius:50%;
+    background:var(--panel); border:2px solid var(--border); display:flex; align-items:center; justify-content:center; font-size:12px; }
+  .step.key .dot { background: linear-gradient(135deg, var(--ember), var(--ember-2)); border-color:transparent; box-shadow:0 0 0 4px var(--ember-glow); }
+  .step.serve .dot { background:var(--green); border-color:transparent; }
+  .step .time { font-size:13px; color:var(--ember-2); font-weight:700; }
+  .step .time .day { color:var(--text-faint); font-weight:600; margin-left:6px; font-size:12px; }
+  .step .title { font-size:16px; font-weight:700; margin:2px 0 2px; }
+  .step .detail { font-size:14px; color:var(--text-dim); line-height:1.5; }
+  .note { margin-top:22px; font-size:13.5px; color:var(--text-faint); line-height:1.6; border-top:1px solid var(--border-soft); padding-top:16px; }
+  .note b { color:var(--text-dim); }
+
+  /* Timer */
+  .timer { margin-top:22px; background:linear-gradient(180deg,var(--panel),var(--panel-2)); border:1px solid var(--border); border-radius:18px; padding:20px; }
+  .timer h3 { margin:0 0 4px; font-size:16px; }
+  .timer .sub { color:var(--text-faint); font-size:13px; margin-bottom:14px; }
+  .timer-display { display:flex; align-items:baseline; gap:14px; flex-wrap:wrap; }
+  .timer-clock { font-family:var(--serif); font-size:42px; font-weight:800; color:var(--ember-2); letter-spacing:1px; }
+  .timer-rem { color:var(--text-dim); font-size:14px; }
+  .bar { height:10px; background:var(--bg-soft); border:1px solid var(--border); border-radius:10px; overflow:hidden; margin:14px 0; }
+  .bar > div { height:100%; width:0%; background: linear-gradient(90deg, var(--ember), var(--ember-2)); transition:width .5s; }
+  .timer-btns { display:flex; gap:10px; }
+  .timer-btns button { flex:1; border:none; border-radius:12px; padding:12px; font-size:14px; font-weight:700; cursor:pointer; }
+  .btn-start { background: linear-gradient(135deg, var(--ember), var(--ember-2)); color:#1a0f07; }
+  .btn-ghost { background:var(--bg-soft); border:1px solid var(--border) !important; color:var(--text-dim); }
+
+  /* Recipe */
+  .recipe-head { display:flex; align-items:center; gap:16px; margin:6px 0 2px; }
+  .recipe-head .e { font-size:40px; }
+  .recipe-head .n { font-family:var(--serif); font-size:28px; font-weight:800; }
+  .recipe-head .g { font-size:12.5px; color:var(--text-faint); text-transform:uppercase; letter-spacing:1px; }
+  .chips { display:flex; gap:8px; flex-wrap:wrap; margin:14px 0 22px; }
+  .chip { background:var(--panel); border:1px solid var(--border); border-radius:30px; padding:7px 14px; font-size:13px; color:var(--text-dim); }
+  .chip b { color:var(--ember-2); }
+  .rec-grid { display:grid; grid-template-columns: 1fr 1.4fr; gap:18px; }
+  .rec-box { background:linear-gradient(180deg,var(--panel),var(--panel-2)); border:1px solid var(--border); border-radius:16px; padding:20px; }
+  .rec-box h3 { margin:0 0 14px; font-size:16px; display:flex; align-items:center; gap:8px; }
+  .rec-box ul { margin:0; padding-left:0; list-style:none; }
+  .rec-box.rub li { padding:8px 0; border-bottom:1px solid var(--border-soft); font-size:14.5px; color:var(--text); }
+  .rec-box.rub li:last-child { border-bottom:none; }
+  .rec-box ol { margin:0; padding-left:20px; }
+  .rec-box ol li { margin:0 0 12px; line-height:1.6; font-size:14.5px; color:var(--text-dim); }
+  .rec-box ol li b { color:var(--text); }
+  .serve-line { margin-top:18px; background:rgba(143,209,79,.08); border:1px solid rgba(143,209,79,.3); color:#cde6ab;
+    border-radius:14px; padding:14px 16px; font-size:14px; line-height:1.55; }
+  .prepsteps { margin-top:14px; }
+  .prepsteps li { color:var(--text-dim); font-size:14px; line-height:1.6; margin:0 0 8px; padding-left:0; list-style:none; position:relative; padding-left:22px; }
+  .prepsteps li::before { content:"✦"; position:absolute; left:0; color:var(--ember-2); }
+
+  /* Doneness */
+  .scale { display:grid; grid-template-columns: repeat(4,1fr); gap:10px; margin:8px 0 26px; }
+  .scale .lv { border:1px solid var(--border); border-radius:14px; overflow:hidden; background:var(--panel); }
+  .scale .lv .swatch { height:38px; }
+  .scale .lv .body { padding:14px; text-align:center; }
+  .scale .lv .nm { font-weight:700; font-size:14px; }
+  .scale .lv .tp { font-family:var(--serif); font-size:22px; color:var(--ember-2); font-weight:800; margin-top:4px; }
+  .scale .lv .pl { font-size:11.5px; color:var(--text-faint); margin-top:4px; }
+  .sec-title { font-family:var(--serif); font-size:22px; margin:30px 0 14px; }
+  .done-grid { display:grid; grid-template-columns: repeat(2,1fr); gap:12px; }
+  .done-card { background: linear-gradient(180deg, var(--panel), var(--panel-2)); border:1px solid var(--border); border-radius:14px; padding:16px 18px; }
+  .done-card .head { display:flex; align-items:center; gap:10px; }
+  .done-card .head .e { font-size:22px; }
+  .done-card .head .n { font-weight:700; font-size:15px; }
+  .temp-row { display:flex; justify-content:space-between; align-items:baseline; margin-top:10px; padding-top:9px; border-top:1px solid var(--border-soft); }
+  .temp-row .k { font-size:12.5px; color:var(--text-dim); } .temp-row .t { font-family:var(--serif); font-size:20px; font-weight:800; color:var(--ember-2); }
+  .done-card .tip { font-size:12.5px; color:var(--text-faint); margin-top:10px; line-height:1.5; }
+  .rest-table { width:100%; border-collapse:collapse; margin-top:8px; font-size:14px; }
+  .rest-table th, .rest-table td { border:1px solid var(--border); padding:10px 14px; text-align:left; }
+  .rest-table th { background:var(--panel-2); color:var(--text-dim); }
+  .rest-table td { color:var(--text-dim); }
+
+  /* Wood */
+  .wood-card { background:linear-gradient(180deg,var(--panel),var(--panel-2)); border:1px solid var(--border); border-radius:16px; padding:18px 20px; margin-bottom:14px; }
+  .wood-card .top { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; }
+  .wood-card .nm { font-weight:800; font-size:17px; }
+  .wood-card .str { font-size:12px; font-weight:700; padding:4px 10px; border-radius:20px; }
+  .str.mild { background:rgba(143,209,79,.16); color:#bfe39a; }
+  .str.med { background:rgba(255,179,71,.16); color:#ffd09a; }
+  .str.strong { background:rgba(255,107,94,.16); color:#ffb0a8; }
+  .wood-card .for { color:var(--text-dim); font-size:14px; margin-top:8px; line-height:1.55; }
+  .wood-card .for b { color:var(--text); }
+
+  /* Tips */
+  .tip-card, .trouble { background: linear-gradient(180deg, var(--panel), var(--panel-2)); border:1px solid var(--border);
+    border-radius:var(--radius); padding:18px 20px; margin-bottom:14px; display:flex; gap:16px; }
+  .tip-card .e, .trouble .e { font-size:26px; flex:0 0 auto; }
+  .tip-card .tt, .trouble .tt { font-weight:700; font-size:15.5px; margin-bottom:4px; }
+  .tip-card .td, .trouble .td { color:var(--text-dim); font-size:14px; line-height:1.6; }
+  .trouble .tt { color:var(--ember-2); }
+
+  /* Family */
+  .family { margin-top:34px; border:1px dashed #4a382c; border-radius:18px; padding:22px 24px; background:rgba(255,179,71,.05); text-align:center; }
+  .family .ttl { font-family:var(--serif); font-size:19px; margin-bottom:8px; }
+  .family p { color:var(--text-dim); font-size:14.5px; line-height:1.65; margin:0 auto; max-width:600px; }
+  .family .sig { color:var(--ember-2); font-family:var(--serif); font-size:17px; margin-top:12px; }
+
+  @media (max-width:720px) {
+    h1 { font-size:30px; }
+    .control-grid, .rec-grid, .summary, .done-grid, .scale { grid-template-columns:1fr; }
+    .summary, .scale { grid-template-columns: repeat(2,1fr); }
+    .meat-picker { grid-template-columns: repeat(2,1fr); }
+  }
+  @keyframes rise { from { opacity:0; transform:translateY(10px);} to { opacity:1; transform:none; } }
+
+  /* Print */
+  @media print {
+    body { background:#fff; color:#000; }
+    .ribbon, .tabs, .controls, .timer, .row-actions, .family, header.hero .badge, header.hero .tagline { display:none !important; }
+    .view { display:none !important; } #planner { display:block !important; }
+    .start-banner, .stat, .step .dot { box-shadow:none !important; }
+    h1 { color:#000; } .step .time, .stat .v, .start-banner .big { color:#b4530f !important; }
+  }
+</style>
+</head>
+<body>
+
+<div class="ribbon">🎁 Happy Father's Day, <b id="ribbonName">Dad</b> — fire it up. 🔥</div>
+
+<div class="wrap">
+  <header class="hero">
+    <span class="badge">🔥 The Pitmaster's Toolkit</span>
+    <h1>Dad's <span class="fire">BBQ</span> Command Center</h1>
+    <p class="tagline">Plan the cook, get the recipe, nail the temps.</p>
+  </header>
+
+  <div class="tabs">
+    <button class="tab active" data-view="planner">⏱️ Cook Planner</button>
+    <button class="tab" data-view="recipes">📖 Recipes</button>
+    <button class="tab" data-view="doneness">🌡️ Doneness</button>
+    <button class="tab" data-view="wood">🪵 Wood &amp; Pairings</button>
+    <button class="tab" data-view="tips">💡 Tips &amp; Fixes</button>
+  </div>
+
+  <!-- ============ PLANNER ============ -->
+  <section class="view active" id="planner">
+    <div class="controls">
+      <div class="field">
+        <label>What are you cooking?</label>
+        <div class="meat-picker" id="meatPicker"></div>
+        <div class="pickwrap">
+          <select id="moreSelect"></select>
+          <span class="car">▾</span>
+        </div>
+      </div>
+
+      <div class="control-grid" style="margin-top:18px">
+        <div class="field" id="weightField">
+          <label id="weightLabel">Weight (lbs)</label>
+          <input type="number" id="weight" min="0.5" max="40" step="0.5" value="13" />
+        </div>
+        <div class="field">
+          <label id="tempLabel">Smoker temperature</label>
+          <div class="seg" id="tempSeg"></div>
+        </div>
+      </div>
+
+      <div class="field" id="donenessField" style="margin-top:18px">
+        <label>How do you want it done?</label>
+        <div class="seg" id="doneSeg"></div>
+      </div>
+
+      <div class="control-grid" style="margin-top:18px">
+        <div class="field">
+          <label>When do you want to eat?</label>
+          <input type="datetime-local" id="serveTime" />
+        </div>
+        <div class="field">
+          <label>Feeding how many? (optional)</label>
+          <input type="number" id="guests" min="1" max="60" step="1" placeholder="e.g. 8" />
+          <div class="helper" id="buyHelper"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="row-actions" style="margin-top:16px">
+      <button class="mini-btn" id="viewRecipeBtn">📖 View this recipe →</button>
+      <button class="mini-btn" id="printBtn">🖨️ Print this plan</button>
+    </div>
+
+    <div id="output"></div>
+
+    <div class="timer">
+      <h3>🔥 Live Cook Timer</h3>
+      <div class="sub">Hit start when the meat goes on. It tracks against the estimate above.</div>
+      <div class="timer-display">
+        <div class="timer-clock" id="timerClock">00:00:00</div>
+        <div class="timer-rem" id="timerRem"></div>
+      </div>
+      <div class="bar"><div id="timerBar"></div></div>
+      <div class="timer-btns">
+        <button class="btn-start" id="timerToggle">Start</button>
+        <button class="btn-ghost" id="timerReset">Reset</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ RECIPES ============ -->
+  <section class="view" id="recipes">
+    <div class="field" style="margin-bottom:22px">
+      <label>Pick a cut to see the full recipe</label>
+      <div class="pickwrap"><select id="recipeSelect"></select><span class="car">▾</span></div>
+    </div>
+    <div id="recipeBody"></div>
+  </section>
+
+  <!-- ============ DONENESS ============ -->
+  <section class="view" id="doneness">
+    <div class="sec-title">🥩 Beef &amp; Lamb doneness</div>
+    <p class="helper" style="margin-bottom:14px">Pull a few degrees early — temperature keeps climbing while it rests (carryover). These are the <i>final</i> temps after resting.</p>
+    <div class="scale" id="donenessScale"></div>
+
+    <div class="sec-title">🌡️ Pull temps by cut</div>
+    <div class="done-grid" id="doneGrid"></div>
+
+    <div class="sec-title">😴 How long to rest</div>
+    <table class="rest-table">
+      <tr><th>Cut</th><th>Rest time</th><th>Why</th></tr>
+      <tr><td>Steaks, chops</td><td>5–10 min</td><td>Juices settle so they don't run out when you cut.</td></tr>
+      <tr><td>Roasts, whole birds</td><td>20–30 min</td><td>Bigger mass, more carryover — tent loosely with foil.</td></tr>
+      <tr><td>Brisket, big roasts</td><td>1–2 hours</td><td>Wrap in towels in a dry cooler; stays hot and gets more tender.</td></tr>
+    </table>
+    <p class="note">🌡️ A good instant-read thermometer is your single best tool. Poultry has hard safety minimums (165°F); for whole-muscle beef and lamb, doneness is your call — cook to the temp you like.</p>
+  </section>
+
+  <!-- ============ WOOD ============ -->
+  <section class="view" id="wood">
+    <p class="helper" style="margin-bottom:18px">Match the wood to the meat — and remember the cardinal rule: you want <b style="color:var(--text)">thin, almost-invisible blue smoke</b>, never thick white billows. Less is more.</p>
+    <div id="woodList"></div>
+    <p class="note">💡 Mix woods to build your own flavor — a base of oak with a little cherry is a classic all-rounder that works on almost anything.</p>
+  </section>
+
+  <!-- ============ TIPS ============ -->
+  <section class="view" id="tips">
+    <div class="sec-title">💡 Pitmaster tips</div>
+    <div id="tipList"></div>
+    <div class="sec-title">🔧 Troubleshooting</div>
+    <div id="troubleList"></div>
+  </section>
+
+  <div class="family">
+    <div class="ttl">For the best pitmaster we know 🍖</div>
+    <p>You taught us that the good stuff takes time, patience, and a little smoke. We made you this so the next cook is even easier — now go feed everybody.</p>
+    <div class="sig">Happy Father's Day — love, Jane, Caleb &amp; Abby</div>
+  </div>
+</div>
+
+<script>
+/* ===================== CONFIG ===================== */
+const DAD_NAME = "Andrew";   // 👈 change to whatever you'd like it to call him
+
+/* ===================== DONENESS LEVELS (beef/lamb) ===================== */
+const DONE = {
+  "Rare":        { final:125, pull:120, color:"#b23b3b" },
+  "Medium-rare": { final:133, pull:128, color:"#c75b46" },
+  "Medium":      { final:142, pull:137, color:"#cf7a4c" },
+  "Medium-well": { final:152, pull:147, color:"#b58a5e" },
+};
+const DONE_ORDER = ["Rare","Medium-rare","Medium","Medium-well"];
+
+/* ===================== MEATS ===================== */
+/* cook.type: "perlb" (minPerLb at cook.temp) or "fixed" (total minutes)
+   tender:true => low & slow, pull ~203 "probe tender"
+   doneness:true => show doneness selector (beef/lamb), pull set by choice
+   else pull = fixed number (poultry/fish/ground) */
+const MEATS = {
+  /* ---------- CORE 4 ---------- */
+  brisket: { label:"Brisket", emoji:"🐄", group:"Beef", core:true,
+    cook:{type:"perlb", minPerLb:80, temp:225}, temps:[225,250], tender:true, wrapAt:165, rest:60, prep:45, defW:13, buy:1.1,
+    wood:["Oak","Hickory"],
+    doneTip:"Done when a probe slides in like room-temp butter — usually around 203°F. Rest it long.",
+    startNote:"Dry-brine (salt only) uncovered in the fridge the night before for the best bark.",
+    recipe:{ rub:["1/2 cup coarse kosher salt","1/2 cup coarse black pepper","2 tbsp garlic powder","1 tbsp onion powder (optional)"],
+      prep:["Trim the hard fat, leaving about 1/4-inch fat cap.","Salt heavily the night before; add the rest of the rub before it goes on."],
+      method:["Smoke fat-side up at 225–250°F over oak.","Spritz with water or apple juice every hour after the first 3 hours.","When the bark is set and it hits ~165°F (the stall), wrap tightly in butcher paper or foil.","Keep going until a probe reads ~203°F and slides in with no resistance.","Rest wrapped, in a towel-lined cooler, at least 1 hour (up to 3)."],
+      serve:"Slice against the grain — separate the flat and point, the point makes the best burnt ends." } },
+
+  ribRoast: { label:"Rib Roast", emoji:"🍖", group:"Beef", core:true,
+    cook:{type:"perlb", minPerLb:35, temp:250}, temps:[225,250], doneness:true, sear:true, rest:25, prep:30, defW:7, buy:1.0,
+    wood:["Oak","Cherry"],
+    doneTip:"Smoke low to ~10°F below your target, then blast the heat to crust the outside.",
+    startNote:"Salt all over and let it sit uncovered in the fridge a few hours (or overnight) for a great crust.",
+    recipe:{ rub:["3 tbsp kosher salt","2 tbsp coarse black pepper","2 tbsp garlic powder","2 tbsp chopped fresh rosemary & thyme","Olive oil to bind"],
+      prep:["Rub with oil, then coat in the salt/pepper/herb mix.","Let it sit out ~1 hour to take the chill off."],
+      method:["Smoke at 225–250°F over oak with a little cherry.","Cook until ~10°F below your target doneness (see the doneness selector).","Pull and rest while you crank the smoker (or oven) to 475–500°F.","Sear the roast 8–12 minutes until deeply browned and crusty.","Rest 20+ minutes before carving."],
+      serve:"Carve into thick slices; serve with the jus and a horseradish cream." } },
+
+  turkey: { label:"Turkey", emoji:"🦃", group:"Poultry", core:true,
+    cook:{type:"perlb", minPerLb:35, temp:275}, temps:[275,300], pull:160, rest:30, prep:35, defW:14, buy:1.25,
+    wood:["Cherry","Apple","Pecan"],
+    doneTip:"Pull the breast at 160°F (carryover takes it to 165°F). Spatchcock for faster, even cooking.",
+    startNote:"Dry-brine with salt 24 hours ahead, uncovered in the fridge, for juicy meat and crisp skin.",
+    recipe:{ rub:["1/4 cup kosher salt (for the dry brine)","2 tbsp baking powder (crispy skin)","2 tbsp poultry seasoning","1 tbsp black pepper","Softened butter or oil under the skin"],
+      prep:["Spatchcock (remove the backbone) so it lies flat.","Dry-brine with salt 24 hrs ahead; pat very dry before cooking."],
+      method:["Loosen the skin and rub butter or oil underneath.","Smoke at 275–300°F over cherry/apple — higher heat crisps the skin.","Rotate once for even color.","Pull when the breast reads 160°F and the thigh 175°F.","Rest 30 minutes, tented loosely."],
+      serve:"Carve breast and legs separately; save the drippings for gravy." } },
+
+  steak: { label:"Steaks", emoji:"🥩", group:"Beef", core:true,
+    cook:{type:"fixed", total:50, temp:225}, doneness:true, sear:true, rest:10, prep:15, defW:1.5, buy:0.6,
+    wood:["Oak","Hickory"],
+    doneTip:"Reverse sear: smoke low to ~10°F under target, then sear screaming-hot for a crust.",
+    startNote:"Salt thick steaks 45+ minutes ahead (or the night before) and pat dry before cooking.",
+    recipe:{ rub:["Coarse kosher salt","Coarse black pepper","Garlic powder (optional)","A little oil for searing"],
+      prep:["Use steaks at least 1.5 inches thick for reverse searing.","Salt well ahead and bring close to room temp."],
+      method:["Smoke at 225°F until ~10–15°F below your target doneness.","Rest the steaks while you get a cast-iron pan or grill blazing hot.","Sear 45–60 seconds per side (plus the edges) for a deep crust.","Add a knob of butter and a smashed garlic clove at the end if you like.","Short 5–10 minute rest."],
+      serve:"Slice against the grain for tougher cuts; serve whole for ribeye or strip." } },
+
+  /* ---------- BEEF ---------- */
+  beefShortRibs: { label:"Beef Short Ribs", emoji:"🦴", group:"Beef",
+    cook:{type:"perlb", minPerLb:90, temp:250}, temps:[225,250], tender:true, wrapAt:165, rest:30, prep:25, defW:5, buy:1.0,
+    wood:["Oak","Hickory"],
+    doneTip:"'Meat candy.' Done at ~203°F when it jiggles and a probe glides in.",
+    startNote:"Salt and pepper generously — these are rich and need little else.",
+    recipe:{ rub:["Equal parts coarse salt & coarse black pepper","1 tbsp garlic powder"],
+      prep:["Leave the membrane on the bone side; trim excess surface fat.","Season heavily on all sides."],
+      method:["Smoke at 250°F over oak, fat rendering slowly.","Spritz hourly after the bark sets.","Optionally wrap at ~165°F to speed through the stall.","Pull at ~203°F when jiggly and probe-tender.","Rest 30 minutes."],
+      serve:"Serve on the bone — they're huge and dramatic. Great with pickled onions." } },
+
+  triTip: { label:"Tri-Tip", emoji:"🥩", group:"Beef",
+    cook:{type:"perlb", minPerLb:35, temp:250}, temps:[225,250], doneness:true, sear:true, rest:15, prep:20, defW:2.5, buy:0.6,
+    wood:["Oak"],
+    doneTip:"A California classic. Reverse sear to medium-rare, then slice thin against the grain.",
+    startNote:"Santa Maria style: just salt, pepper, and garlic.",
+    recipe:{ rub:["1 tbsp kosher salt","1 tbsp coarse black pepper","1 tbsp garlic powder"],
+      prep:["Trim the silver skin.","Season and let sit 30–60 minutes."],
+      method:["Smoke at 225–250°F over oak until ~10°F below target.","Rest briefly while you heat a grill or pan very hot.","Sear hard on all sides for a crust.","Rest 15 minutes."],
+      serve:"The grain changes direction — slice each half against its own grain, thin." } },
+
+  chuckRoast: { label:"Chuck Roast", emoji:"🐄", group:"Beef",
+    cook:{type:"perlb", minPerLb:90, temp:250}, temps:[225,250], tender:true, wrapAt:160, rest:30, prep:25, defW:4, buy:0.75,
+    wood:["Hickory","Oak"],
+    doneTip:"'Poor man's brisket.' Smoke to ~205°F for shredding, or pull at 160°F to slice.",
+    startNote:"Inexpensive and forgiving — a great cut to practice on.",
+    recipe:{ rub:["2 tbsp kosher salt","2 tbsp black pepper","1 tbsp garlic powder","1 tsp smoked paprika"],
+      prep:["Season on all sides.","Let it sit while the smoker comes up."],
+      method:["Smoke at 250°F until ~160°F.","Wrap in foil with a splash of beef broth.","Continue to ~205°F for shredding (or 160°F to slice).","Rest 30 minutes."],
+      serve:"Shred for sandwiches and tacos, or slice for a pot-roast feel." } },
+
+  beefTenderloin: { label:"Beef Tenderloin", emoji:"🥩", group:"Beef",
+    cook:{type:"perlb", minPerLb:30, temp:250}, temps:[225,250], doneness:true, sear:true, rest:15, prep:25, defW:4, buy:0.6,
+    wood:["Cherry","Oak"],
+    doneTip:"Lean and tender — cook gently to medium-rare and don't overshoot.",
+    startNote:"Tie it at intervals so it cooks evenly. A special-occasion cut.",
+    recipe:{ rub:["2 tbsp kosher salt","2 tbsp coarse black pepper","2 tbsp chopped rosemary & thyme","Olive oil"],
+      prep:["Trim silver skin and tie the roast for an even shape.","Coat with oil and the salt/pepper/herbs."],
+      method:["Smoke at 225–250°F over cherry until ~10°F below target.","Rest while heating a pan/grill very hot.","Sear all sides quickly for a crust.","Rest 15 minutes."],
+      serve:"Slice into thick medallions; lovely with a red-wine or peppercorn sauce." } },
+
+  burgers: { label:"Smoked Burgers", emoji:"🍔", group:"Beef",
+    cook:{type:"fixed", total:60, temp:275}, pull:160, rest:5, prep:15, defW:2, buy:0.5,
+    wood:["Hickory","Cherry"],
+    doneTip:"Ground beef should hit 160°F for safety. Smoke then sear for the best of both.",
+    startNote:"Use 80/20 ground beef so they stay juicy.",
+    recipe:{ rub:["Kosher salt & black pepper (season right before cooking)","Garlic powder (optional)"],
+      prep:["Form patties with a dimple in the center so they stay flat.","Don't overwork the meat."],
+      method:["Smoke at 275°F until ~140°F internal (about 45–60 min).","Sear on a hot grill or pan to finish and crust the outside.","Add cheese in the last minute.","Pull at 160°F; quick rest."],
+      serve:"Toast the buns and build with your favorites." } },
+
+  beefBackRibs: { label:"Beef Back Ribs", emoji:"🦴", group:"Beef",
+    cook:{type:"fixed", total:300, temp:250}, tender:true, rest:15, prep:25, defW:4, buy:1.2,
+    wood:["Oak","Hickory"],
+    doneTip:"The ribs from a prime rib. Done when they bend and crack on the surface.",
+    startNote:"More bone than meat, but incredibly flavorful.",
+    recipe:{ rub:["2 tbsp kosher salt","2 tbsp coarse black pepper","1 tbsp garlic powder"],
+      prep:["Remove the membrane from the bone side.","Season both sides."],
+      method:["Smoke at 250°F over oak for about 5 hours.","Spritz hourly after the first 2 hours.","Done when the surface cracks as you bend the rack (~203°F).","Rest 15 minutes."],
+      serve:"Serve dry or with a light glaze in the last 30 minutes." } },
+
+  burntEnds: { label:"Burnt Ends", emoji:"🔥", group:"Beef",
+    cook:{type:"fixed", total:420, temp:250}, tender:true, rest:10, prep:30, defW:4, buy:0.5,
+    wood:["Oak","Hickory"],
+    doneTip:"Candy of the BBQ world — cubes of brisket point glazed and caramelized.",
+    startNote:"Made from a brisket point or a chuck roast.",
+    recipe:{ rub:["Salt & pepper brisket rub","1/2 cup BBQ sauce","2 tbsp honey or brown sugar","1 tbsp butter (optional)"],
+      prep:["Smoke a brisket point (or chuck) until ~195°F.","Cube into 1-inch pieces."],
+      method:["Toss cubes with BBQ sauce, a little honey, and butter.","Spread in a pan and return to the smoker at 250°F.","Cook ~1.5 hours until sticky and caramelized.","Stir once or twice so they glaze evenly."],
+      serve:"Eat straight off the tray — they never make it to the table." } },
+
+  meatloaf: { label:"Smoked Meatloaf", emoji:"🍞", group:"Beef",
+    cook:{type:"perlb", minPerLb:60, temp:275}, pull:160, rest:15, prep:20, defW:2, buy:0.4,
+    wood:["Hickory","Cherry"],
+    doneTip:"Smoke adds a whole new dimension to a classic. Pull at 160°F.",
+    startNote:"Use a foil boat or rack so the smoke gets all around it.",
+    recipe:{ rub:["2 lbs ground beef","1 egg, 1/2 cup breadcrumbs","1/2 onion + 2 cloves garlic, minced","Salt, pepper, Worcestershire","Ketchup or BBQ glaze for the top"],
+      prep:["Mix everything gently; don't overwork.","Shape into a loaf on a foil boat."],
+      method:["Smoke at 275°F over hickory.","At ~140°F, brush on a ketchup/BBQ glaze.","Continue until 160°F internal.","Rest 15 minutes so it slices clean."],
+      serve:"Thick slices with the caramelized glaze on top." } },
+
+  beefJerky: { label:"Beef Jerky", emoji:"🥓", group:"Beef",
+    cook:{type:"fixed", total:300, temp:170}, pull:null, rest:0, prep:30, defW:2, buy:0.25, jerky:true,
+    wood:["Hickory","Mesquite"],
+    doneTip:"Low and slow until dry and leathery but still bendable — usually 4–6 hours.",
+    startNote:"Marinate overnight. Slice against the grain for tender jerky.",
+    recipe:{ rub:["2 lbs lean beef (top round), sliced 1/4-inch","1/2 cup soy sauce","2 tbsp Worcestershire","2 tbsp brown sugar or honey","1 tsp each garlic & onion powder, black pepper","Red pepper flakes to taste"],
+      prep:["Freeze the beef 30 min to slice thinly against the grain.","Marinate 8–24 hours; pat dry before smoking."],
+      method:["Lay strips directly on the grates at 170–180°F.","Smoke 4–6 hours, flipping once.","Done when it bends and cracks but doesn't snap.","Cool completely before storing."],
+      serve:"Store in a jar — it keeps for weeks (if it lasts that long)." } },
+
+  /* ---------- POULTRY ---------- */
+  wholeChicken: { label:"Whole Chicken", emoji:"🐔", group:"Poultry",
+    cook:{type:"perlb", minPerLb:45, temp:275}, temps:[275,300], pull:165, rest:15, prep:20, defW:5, buy:1.25,
+    wood:["Apple","Cherry","Pecan"],
+    doneTip:"165°F in the breast, 175°F+ in the thigh. Higher heat = crispier skin.",
+    startNote:"Dry-brine and air-dry in the fridge for the crispiest skin.",
+    recipe:{ rub:["2 tbsp kosher salt","1 tbsp baking powder (crispy skin)","1 tbsp paprika","1 tsp each garlic & onion powder, pepper"],
+      prep:["Pat very dry; salt and rest uncovered in the fridge a few hours.","Oil the skin before cooking."],
+      method:["Smoke at 275–300°F over apple/cherry.","Don't open the lid much — keep the heat steady.","Pull at 165°F breast / 175°F thigh.","Rest 15 minutes."],
+      serve:"Quarter it, or carve and pile on a platter." } },
+
+  spatchcockChicken: { label:"Spatchcock Chicken", emoji:"🐓", group:"Poultry",
+    cook:{type:"perlb", minPerLb:35, temp:300}, temps:[300,325], pull:165, rest:15, prep:25, defW:5, buy:1.25,
+    wood:["Apple","Cherry"],
+    doneTip:"Flattened bird cooks faster and more evenly, with more crispy skin.",
+    startNote:"Remove the backbone and press flat — the whole thing cooks in about an hour.",
+    recipe:{ rub:["2 tbsp kosher salt","1 tbsp baking powder","1 tbsp poultry seasoning","1 tsp black pepper"],
+      prep:["Cut out the backbone with shears and press the breastbone flat.","Dry-brine and air-dry for crisp skin."],
+      method:["Smoke skin-up at 300–325°F.","Rotate once for even browning.","Pull at 165°F breast / 175°F thigh.","Rest 10–15 minutes."],
+      serve:"Cut into halves or quarters — easy to portion." } },
+
+  chickenWings: { label:"Chicken Wings", emoji:"🍗", group:"Poultry",
+    cook:{type:"fixed", total:120, temp:275}, pull:175, rest:5, prep:20, defW:3, buy:0.75,
+    wood:["Apple","Hickory"],
+    doneTip:"Smoke at 275°F then crank the heat (or fry) for crispy skin. Pull around 175–180°F.",
+    startNote:"Baking powder in the rub is the secret to crispy smoked wings.",
+    recipe:{ rub:["2 lbs wings","1 tbsp baking powder","1 tbsp kosher salt","1 tbsp paprika","1 tsp each garlic powder & pepper"],
+      prep:["Pat very dry; toss with baking powder and rub.","Let sit uncovered in the fridge 1 hour if you can."],
+      method:["Smoke at 275°F for about 45 min.","Crank to 400°F+ (or move to a hot grill) to crisp the skin.","Pull at 175–180°F — dark meat is best a bit higher.","Toss in sauce if you like."],
+      serve:"Buffalo, BBQ, or dry-rubbed — serve hot." } },
+
+  chickenThighs: { label:"Chicken Thighs", emoji:"🍗", group:"Poultry",
+    cook:{type:"fixed", total:120, temp:275}, pull:180, rest:5, prep:15, defW:3, buy:0.5,
+    wood:["Apple","Cherry","Pecan"],
+    doneTip:"Forgiving and juicy — dark meat is best pulled at 180°F+, not 165°F.",
+    startNote:"Bone-in, skin-on thighs are nearly impossible to dry out.",
+    recipe:{ rub:["Kosher salt & black pepper","1 tbsp paprika","1 tsp each garlic & onion powder","Pinch of cayenne"],
+      prep:["Pat dry and season under and over the skin.","Oil the skin lightly."],
+      method:["Smoke at 275°F over fruit wood, skin up.","Optionally crisp the skin over higher heat at the end.","Pull at 180°F+ for tender dark meat.","Quick rest, then glaze if desired."],
+      serve:"Great plain or brushed with a sticky glaze." } },
+
+  turkeyBreast: { label:"Turkey Breast", emoji:"🦃", group:"Poultry",
+    cook:{type:"perlb", minPerLb:35, temp:275}, temps:[275,300], pull:160, rest:20, prep:25, defW:7, buy:0.75,
+    wood:["Cherry","Apple","Pecan"],
+    doneTip:"All white meat — pull at 160°F (carryover to 165°F) so it stays juicy.",
+    startNote:"A great smaller-crowd option without cooking a whole bird.",
+    recipe:{ rub:["2 tbsp kosher salt (dry brine)","1 tbsp baking powder","1 tbsp poultry seasoning","Butter or oil under the skin"],
+      prep:["Dry-brine 12–24 hours, uncovered in the fridge.","Loosen the skin and add butter or oil underneath."],
+      method:["Smoke at 275–300°F over cherry.","Pull at 160°F internal.","Rest 20 minutes, tented loosely."],
+      serve:"Slice across the breast for clean, even pieces." } },
+
+  cornishHen: { label:"Cornish Hens", emoji:"🐦", group:"Poultry",
+    cook:{type:"fixed", total:120, temp:300}, pull:165, rest:10, prep:20, defW:1.5, buy:0.9,
+    wood:["Apple","Cherry"],
+    doneTip:"Mini chickens — one per person makes an impressive plate. Pull at 165°F.",
+    startNote:"Quick-cooking and elegant; great for a dinner party.",
+    recipe:{ rub:["Kosher salt & pepper","1 tbsp herbs de Provence or poultry seasoning","Butter or oil","Lemon & garlic for the cavity"],
+      prep:["Pat dry; stuff cavities with lemon and garlic.","Rub skin with butter or oil and season."],
+      method:["Smoke at 300°F over fruit wood.","Rotate once for even color.","Pull at 165°F in the thigh.","Rest 10 minutes."],
+      serve:"Serve whole, one per guest." } },
+
+  duck: { label:"Whole Duck", emoji:"🦆", group:"Poultry",
+    cook:{type:"perlb", minPerLb:35, temp:300}, temps:[300,325], pull:165, sear:true, rest:15, prep:30, defW:5, buy:1.25,
+    wood:["Cherry","Apple"],
+    doneTip:"Score the skin and render the fat — pull at 165°F in the thigh.",
+    startNote:"Ducks are fatty; pricking and higher heat renders the skin crisp.",
+    recipe:{ rub:["Kosher salt & black pepper","1 tsp five-spice or paprika","Orange zest (optional)"],
+      prep:["Score the skin in a diamond pattern (don't cut the meat).","Dry-brine and air-dry overnight for crisp skin."],
+      method:["Smoke at 300–325°F over cherry to render the fat.","Pour off rendered fat once or twice (save it — it's gold).","Crisp the skin over higher heat at the end.","Pull at 165°F thigh; rest 15 minutes."],
+      serve:"Carve like a chicken; pairs beautifully with an orange or cherry sauce." } },
+
+  /* ---------- LAMB ---------- */
+  legOfLamb: { label:"Leg of Lamb", emoji:"🐑", group:"Lamb",
+    cook:{type:"perlb", minPerLb:30, temp:250}, temps:[225,250], doneness:true, rest:20, prep:30, defW:6, buy:0.75,
+    wood:["Cherry","Oak","Pecan"],
+    doneTip:"Smoke to medium-rare/medium — lamb is best not overcooked.",
+    startNote:"Garlic and rosemary are lamb's best friends.",
+    recipe:{ rub:["3 tbsp kosher salt","2 tbsp black pepper","6 cloves garlic, minced","2 tbsp chopped rosemary","Olive oil"],
+      prep:["Boneless or bone-in both work; trim heavy fat.","Make small slits and tuck in garlic slivers; coat with oil and rub."],
+      method:["Smoke at 225–250°F over cherry/oak.","Pull at ~10°F below your target doneness.","Rest 20 minutes."],
+      serve:"Slice thin; serve with mint or a yogurt-herb sauce." } },
+
+  rackOfLamb: { label:"Rack of Lamb", emoji:"🐑", group:"Lamb",
+    cook:{type:"fixed", total:75, temp:275}, doneness:true, sear:true, rest:10, prep:20, defW:2, buy:0.75,
+    wood:["Cherry","Apple"],
+    doneTip:"Elegant and quick — reverse sear to medium-rare and serve as chops.",
+    startNote:"Ask the butcher to french the bones for a clean presentation.",
+    recipe:{ rub:["Kosher salt & black pepper","2 tbsp Dijon mustard (binder)","2 tbsp chopped rosemary & thyme","Garlic, minced","Olive oil"],
+      prep:["Coat with mustard, then press on the herb/garlic mix.","Bring to room temp before cooking."],
+      method:["Smoke at 275°F over cherry until ~10°F below target.","Sear hard over high heat for a crust.","Rest 10 minutes."],
+      serve:"Slice between the bones into individual chops." } },
+
+  lambShoulder: { label:"Lamb Shoulder", emoji:"🐑", group:"Lamb",
+    cook:{type:"perlb", minPerLb:75, temp:250}, temps:[225,250], tender:true, wrapAt:165, rest:30, prep:30, defW:5, buy:0.9,
+    wood:["Oak","Cherry"],
+    doneTip:"The lamb version of pulled meat — smoke to ~205°F until it shreds.",
+    startNote:"Fattier and very forgiving; fantastic pulled.",
+    recipe:{ rub:["3 tbsp kosher salt","2 tbsp cumin & coriander","1 tbsp paprika","Garlic & rosemary"],
+      prep:["Trim heavy fat; season all over.","Let sit while the smoker heats."],
+      method:["Smoke at 250°F over oak.","Wrap at ~165°F with a splash of broth.","Continue to ~205°F until it shreds easily.","Rest 30 minutes."],
+      serve:"Shred and pile into flatbreads with pickles and yogurt sauce." } },
+
+  /* ---------- SEAFOOD ---------- */
+  salmon: { label:"Salmon", emoji:"🐟", group:"Seafood",
+    cook:{type:"fixed", total:75, temp:225}, pull:135, rest:5, prep:20, defW:2, buy:0.4,
+    wood:["Alder","Cherry","Apple"],
+    doneTip:"Pull at ~135°F — it'll flake but stay moist and silky.",
+    startNote:"A quick dry-brine of salt and brown sugar firms it up beautifully.",
+    recipe:{ rub:["1/4 cup brown sugar + 2 tbsp salt (dry brine)","Black pepper","Dill or lemon (optional)"],
+      prep:["Dry-brine the fillet 1–2 hours, then rinse and pat dry.","Let a tacky 'pellicle' form (air-dry ~30 min) so smoke sticks."],
+      method:["Smoke skin-side down at 225°F over alder.","Don't flip it.","Pull at ~135°F when it flakes gently."],
+      serve:"Serve warm with lemon, or chill it for salads and bagels." } },
+
+  trout: { label:"Whole Trout", emoji:"🐠", group:"Seafood",
+    cook:{type:"fixed", total:60, temp:225}, pull:140, rest:5, prep:15, defW:1.5, buy:0.5,
+    wood:["Alder","Apple"],
+    doneTip:"Delicate and quick — done at ~140°F when the flesh flakes.",
+    startNote:"Stuff the cavity with lemon and herbs for extra flavor.",
+    recipe:{ rub:["Salt & pepper inside and out","Lemon slices","Fresh dill or parsley","A little oil or butter"],
+      prep:["Clean the trout; pat dry.","Stuff the cavity with lemon and herbs."],
+      method:["Smoke whole at 225°F over alder.","No need to flip.","Pull at ~140°F when the flesh flakes."],
+      serve:"Open it up and lift the fillets off the bone." } },
+};
+
+const ORDER = Object.keys(MEATS);
+const GROUPS = ["Beef","Poultry","Lamb","Seafood"];
+
+/* ===================== WOODS ===================== */
+const WOODS = [
+  ["Apple","mild","Mild &amp; sweet","Poultry, fish, lamb — gentle and fruity, hard to overdo."],
+  ["Cherry","mild","Mild &amp; sweet","Everything. Adds a beautiful mahogany color; pairs with anything."],
+  ["Alder","mild","Mild","Fish, especially salmon — the classic, delicate choice."],
+  ["Pecan","med","Medium","Poultry, beef, lamb — like a softer, sweeter hickory."],
+  ["Maple","med","Medium","Poultry and a touch of sweetness on most cuts."],
+  ["Oak","med","Medium · all-rounder","The workhorse for brisket and beef. Steady, balanced, never harsh."],
+  ["Hickory","strong","Strong","Beef and big cuts — bold and bacon-y. Easy to overdo, so go light."],
+  ["Mesquite","strong","Strong","Beef, quick cooks, jerky — intense and earthy. Use sparingly."],
+];
+
+/* ===================== TIPS + TROUBLE ===================== */
+const TIPS = [
+  ["🧂","Salt early, salt generously","A dry brine — salt and rest the meat uncovered in the fridge (hours for small cuts, overnight for big ones) — seasons deep and dries the surface for better bark and crispier skin."],
+  ["🌡️","Cook to temp, not to the clock","Every cut and smoker is different. This app gets you close; your thermometer has the final word. Budget extra time — you can always rest longer."],
+  ["😤","Ride out the stall","Around 150–170°F the temp stalls for hours as moisture evaporates. Totally normal. Wrap in foil or butcher paper to push through faster (the 'Texas crutch')."],
+  ["💨","Thin blue smoke, not white","Billowing white smoke makes food bitter. You want thin, almost-invisible blue smoke. Keep airflow open and don't smother the fire."],
+  ["⏳","The rest is not optional","Resting lets juices redistribute. A brisket or big roast can rest 1–2 hours wrapped in towels in a dry cooler and stay perfectly hot."],
+  ["💧","Keep a water pan in there","A pan of water steadies the temperature and keeps the cook humid — better tenderness and a stronger smoke ring."],
+  ["🔪","Always slice against the grain","Find the direction the muscle fibers run and cut across them. It's the difference between tender and chewy."],
+  ["🍑","Spritz to build bark","After the bark sets, a light spritz of water, apple juice, or broth every hour keeps the surface tacky so smoke and rub keep building."],
+  ["🔥","Manage the fire, not the food","Set a steady pit temp and resist opening the lid — 'if you're lookin', you ain't cookin'.' Every peek adds time."],
+];
+const TROUBLE = [
+  ["🥩","My brisket came out tough","It wasn't done. Tough means more time — collagen needs to render. Go past 200°F until a probe slides in with no resistance, and rest it long."],
+  ["🍗","My chicken skin is rubbery","Smoke temp was too low. Cook poultry hotter (300°F+) or crisp the skin over high heat at the end. Dry skin before cooking helps a lot."],
+  ["⭕","No smoke ring","Smoke ring forms early and cold. Start with cold meat, keep humidity up (water pan), and don't wrap too soon. It's cosmetic — flavor doesn't depend on it."],
+  ["😖","Everything tastes bitter / too smoky","Too much white smoke or creosote. Use less wood, keep good airflow, and aim for thin blue smoke. You can over-smoke — especially poultry and fish."],
+  ["🐌","The stall is taking forever","Normal — it can last hours. Wrap in foil or butcher paper to power through, or just wait it out for more bark. Don't crank the heat in a panic."],
+  ["💦","My meat is dry","Likely overcooked or under-rested. Pull at the right temp, keep a water pan in the cook, and always rest before slicing. Slicing against the grain helps too."],
+];
+
+/* ===================== STATE ===================== */
+let selMeat = "brisket";
+let selTemp = MEATS.brisket.temps[0];
+let selDone = "Medium-rare";
+let lastCookMin = null;
+const $ = (id) => document.getElementById(id);
+
+/* ===================== INIT ===================== */
+$("ribbonName").textContent = DAD_NAME;
+document.title = DAD_NAME + "'s BBQ Command Center";
+buildTabs(); buildMeatPicker(); buildMoreSelect(); buildRecipeSelect();
+buildDonenessScale(); buildDoneGrid(); buildWoods(); buildTips();
+setDefaultServeTime(); initTimer();
+selectMeat("brisket");
+
+["weight","serveTime","guests"].forEach(id => $(id).addEventListener("input", render));
+$("viewRecipeBtn").addEventListener("click", () => { $("recipeSelect").value = selMeat; renderRecipe(); switchTab("recipes"); });
+$("printBtn").addEventListener("click", () => window.print());
+$("recipeSelect").addEventListener("change", renderRecipe);
+
+/* ===================== TABS ===================== */
+function buildTabs() {
+  document.querySelectorAll(".tab").forEach(t => t.addEventListener("click", () => switchTab(t.dataset.view)));
+}
+function switchTab(view) {
+  document.querySelectorAll(".tab").forEach(x => x.classList.toggle("active", x.dataset.view === view));
+  document.querySelectorAll(".view").forEach(x => x.classList.toggle("active", x.id === view));
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+/* ===================== MEAT PICKERS ===================== */
+function buildMeatPicker() {
+  const p = $("meatPicker");
+  ORDER.filter(k => MEATS[k].core).forEach(key => {
+    const m = MEATS[key];
+    const b = document.createElement("button");
+    b.className = "meat-btn"; b.dataset.key = key;
+    b.innerHTML = `<span class="e">${m.emoji}</span><span class="n">${m.label}</span>`;
+    b.addEventListener("click", () => selectMeat(key));
+    p.appendChild(b);
+  });
+}
+function buildMoreSelect() {
+  const s = $("moreSelect");
+  s.innerHTML = `<option value="">More cuts…  (${ORDER.filter(k=>!MEATS[k].core).length} more)  ▾</option>`;
+  GROUPS.forEach(g => {
+    const opts = ORDER.filter(k => !MEATS[k].core && MEATS[k].group === g);
+    if (!opts.length) return;
+    const og = document.createElement("optgroup"); og.label = g;
+    opts.forEach(k => { const o = document.createElement("option"); o.value = k; o.textContent = `${MEATS[k].emoji}  ${MEATS[k].label}`; og.appendChild(o); });
+    s.appendChild(og);
+  });
+  s.addEventListener("change", () => { if (s.value) selectMeat(s.value); });
+}
+function buildRecipeSelect() {
+  const s = $("recipeSelect"); s.innerHTML = "";
+  GROUPS.forEach(g => {
+    const og = document.createElement("optgroup"); og.label = g;
+    ORDER.filter(k => MEATS[k].group === g).forEach(k => {
+      const o = document.createElement("option"); o.value = k; o.textContent = `${MEATS[k].emoji}  ${MEATS[k].label}`; og.appendChild(o);
+    });
+    s.appendChild(og);
+  });
+}
+
+function selectMeat(key) {
+  selMeat = key;
+  const m = MEATS[key];
+  document.querySelectorAll(".meat-btn").forEach(b => b.classList.toggle("sel", b.dataset.key === key));
+  const more = $("moreSelect");
+  if (m.core) { more.value = ""; more.classList.remove("active"); }
+  else { more.value = key; more.classList.add("active"); }
+
+  // weight label / value
+  $("weightLabel").textContent = m.jerky ? "Meat weight (lbs)" : "Weight (lbs)";
+  if (m.defW) $("weight").value = m.defW;
+
+  // temperature control
+  const seg = $("tempSeg"); seg.innerHTML = "";
+  const temps = m.temps || [m.cook.temp];
+  selTemp = temps[0];
+  temps.forEach((t, i) => {
+    const b = document.createElement("button");
+    b.textContent = t + "°F";
+    if (i === 0) b.classList.add("on");
+    if (temps.length === 1) b.disabled = true;
+    else b.addEventListener("click", () => { selTemp = t; seg.querySelectorAll("button").forEach(x=>x.classList.remove("on")); b.classList.add("on"); render(); });
+    seg.appendChild(b);
+  });
+
+  // doneness control
+  const df = $("donenessField"), ds = $("doneSeg");
+  if (m.doneness) {
+    df.classList.remove("hidden"); ds.innerHTML = ""; selDone = "Medium-rare";
+    DONE_ORDER.forEach(name => {
+      const b = document.createElement("button");
+      b.textContent = name;
+      if (name === selDone) b.classList.add("on");
+      b.addEventListener("click", () => { selDone = name; ds.querySelectorAll("button").forEach(x=>x.classList.remove("on")); b.classList.add("on"); render(); });
+      ds.appendChild(b);
+    });
+  } else { df.classList.add("hidden"); }
+
+  render();
+}
+
+/* ===================== TIME HELPERS ===================== */
+function setDefaultServeTime() {
+  const d = new Date(); d.setMinutes(0,0,0);
+  if (d.getHours() >= 18) d.setDate(d.getDate()+1);
+  d.setHours(18,0,0,0);
+  $("serveTime").value = toLocalInput(d);
+}
+function toLocalInput(d) { const p=n=>String(n).padStart(2,"0"); return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`; }
+function fmtTime(d) { return d.toLocaleString([], { hour:"numeric", minute:"2-digit" }); }
+function dayTag(stepDate, serveDate) {
+  const a=new Date(stepDate); a.setHours(0,0,0,0); const b=new Date(serveDate); b.setHours(0,0,0,0);
+  const diff=Math.round((b-a)/86400000);
+  if (diff<=0) return ""; if (diff===1) return "the night before"; return diff+" days before";
+}
+function fmtDur(min) { min=Math.round(min); const h=Math.floor(min/60), m=min%60; if(h&&m)return`${h}h ${m}m`; if(h)return`${h}h`; return`${m}m`; }
+
+/* ===================== PLANNER RENDER ===================== */
+function render() {
+  const m = MEATS[selMeat];
+  const serve = new Date($("serveTime").value);
+
+  // servings helper
+  const guests = parseInt($("guests").value);
+  if (guests > 0) {
+    const lbs = (guests * m.buy);
+    $("buyHelper").innerHTML = `Buy about <b style="color:var(--ember-2)">${lbs.toFixed(1)} lbs</b> raw for ${guests}. <span class="linklike" id="useWeight">Use this weight</span>`;
+    const uw = $("useWeight");
+    if (uw) uw.addEventListener("click", () => { $("weight").value = Math.round(lbs*2)/2; render(); });
+  } else { $("buyHelper").textContent = m.buy ? `Plan ~${m.buy} lb of raw ${m.label.toLowerCase()} per person.` : ""; }
+
+  if (isNaN(serve)) { $("output").innerHTML = ""; return; }
+
+  // cook time
+  let cookMin, temp;
+  if (m.cook.type === "perlb") {
+    const w = Math.max(0.5, parseFloat($("weight").value) || m.defW);
+    temp = selTemp; const base = (m.temps || [m.cook.temp])[0];
+    cookMin = m.cook.minPerLb * w * (base / temp);
+  } else { temp = (m.temps ? selTemp : m.cook.temp); cookMin = m.cook.total; }
+  lastCookMin = cookMin; updateTimerEstimate();
+
+  // pull temp
+  let pullDisplay, pullDetail;
+  if (m.tender) { pullDisplay = "~203°F"; pullDetail = m.doneTip; }
+  else if (m.doneness) { const d = DONE[selDone]; pullDisplay = d.pull + "°F"; pullDetail = `Pull at ${d.pull}°F so it carries over to ${selDone.toLowerCase()} (${d.final}°F) while it rests.`; }
+  else if (m.jerky) { pullDisplay = "Dry"; pullDetail = m.doneTip; }
+  else { pullDisplay = m.pull + "°F"; pullDetail = m.doneTip; }
+
+  // backward timeline
+  const restStart = new Date(serve.getTime() - m.rest*60000);
+  const onSmoker = new Date(restStart.getTime() - cookMin*60000);
+  const lightFire = new Date(onSmoker.getTime() - 30*60000);
+  const prepStart = new Date(lightFire.getTime() - m.prep*60000);
+
+  const steps = [];
+  steps.push({ icon:"🧂", time:prepStart, title:"Prep & season", detail: m.startNote || "Trim, season, and let it come up while the smoker heats." });
+  steps.push({ icon:"🔥", time:lightFire, title:`Fire up the smoker to ${temp}°F`, detail:"Get it stable and producing thin blue smoke before the meat goes on." });
+  steps.push({ icon:"🥩", time:onSmoker, title:"Meat goes on", key:true, detail:`Estimated cook: about ${fmtDur(cookMin)} at ${temp}°F over ${m.wood.join(" or ")}.` });
+  if (m.wrapAt) {
+    const wrap = new Date(onSmoker.getTime() + cookMin*0.62*60000);
+    steps.push({ icon:"📦", time:wrap, title:`Wrap around ${m.wrapAt}°F (the stall)`, detail:"Wrap in foil or butcher paper to power through the stall and keep it moist." });
+  }
+  if (m.sear) {
+    steps.push({ icon:"🌡️", time:restStart, title:`Pull at ${pullDisplay}, then sear`, key:true, detail: pullDetail + " Then sear hard over high heat for a crust." });
+  } else {
+    steps.push({ icon:"🌡️", time:restStart, title: m.jerky ? "It's ready when dry & leathery" : `Pull at ${pullDisplay}`, key:true, detail: pullDetail });
+  }
+  if (m.rest > 0) steps.push({ icon:"😴", time:restStart, title:`Rest for ${fmtDur(m.rest)}`, detail:"Tent loosely (or wrap in towels in a cooler). This is where it gets juicy — don't skip it." });
+  steps.push({ icon:"🍽️", time:serve, title:"Slice & serve", serve:true, detail:"Against the grain. Then take the credit you deserve." });
+
+  const totalMin = (serve - prepStart)/60000;
+  let html = "";
+  html += `<div class="start-banner"><div class="ico">⏰</div><div>
+      <div class="big">Start at ${fmtTime(prepStart)} · ${dayTag(prepStart, serve) || prepStart.toLocaleDateString([], {weekday:"long"})}</div>
+      <div class="small">When to begin, working back from your ${fmtTime(serve)} dinner.</div></div></div>`;
+  html += `<div class="summary">
+      <div class="stat"><div class="v">${fmtDur(cookMin)}</div><div class="l">Cook time</div></div>
+      <div class="stat"><div class="v">${temp}°F</div><div class="l">Smoker temp</div></div>
+      <div class="stat"><div class="v">${pullDisplay}</div><div class="l">Pull temp</div></div>
+      <div class="stat"><div class="v">${fmtDur(totalMin)}</div><div class="l">Start to plate</div></div></div>`;
+  html += `<div class="timeline">`;
+  steps.forEach(s => { const tag = dayTag(s.time, serve);
+    html += `<div class="step ${s.key?"key":""} ${s.serve?"serve":""}"><div class="dot">${s.icon}</div>
+      <div class="time">${fmtTime(s.time)}${tag?`<span class="day">${tag}</span>`:""}</div>
+      <div class="title">${s.title}</div><div class="detail">${s.detail}</div></div>`; });
+  html += `</div>`;
+  html += `<p class="note">⏱️ <b>These are estimates</b> to plan your day — real times swing with the cut, the weather, and your smoker. Always cook to internal temperature, give yourself a buffer, and remember a finished cook rests happily for an hour+, so it's better to be early than late.</p>`;
+  $("output").innerHTML = html;
+}
+
+/* ===================== RECIPE RENDER ===================== */
+function renderRecipe() {
+  const key = $("recipeSelect").value; const m = MEATS[key]; const r = m.recipe;
+  const pull = m.tender ? "~203°F (probe tender)" : m.doneness ? "to your doneness" : m.jerky ? "dry & leathery" : m.pull+"°F";
+  let html = `
+    <div class="recipe-head"><div class="e">${m.emoji}</div><div>
+      <div class="g">${m.group}</div><div class="n">${m.label}</div></div></div>
+    <div class="chips">
+      <div class="chip">🪵 Wood: <b>${m.wood.join(", ")}</b></div>
+      <div class="chip">🌡️ Smoker: <b>${(m.temps?m.temps.join("–"):m.cook.temp)}°F</b></div>
+      <div class="chip">🎯 Pull: <b>${pull}</b></div>
+      <div class="chip">😴 Rest: <b>${m.rest?fmtDur(m.rest):"—"}</b></div>
+    </div>
+    <div class="rec-grid">
+      <div class="rec-box rub"><h3>🧂 What you'll need</h3><ul>${r.rub.map(x=>`<li>${x}</li>`).join("")}</ul>
+        <ul class="prepsteps">${r.prep.map(x=>`<li>${x}</li>`).join("")}</ul></div>
+      <div class="rec-box"><h3>🔥 The cook</h3><ol>${r.method.map(x=>`<li>${x}</li>`).join("")}</ol>
+        <div class="serve-line">🍽️ <b>To serve:</b> ${r.serve}</div></div>
+    </div>
+    <div class="row-actions" style="margin-top:18px"><button class="mini-btn" id="planThis">⏱️ Plan this cook →</button></div>`;
+  $("recipeBody").innerHTML = html;
+  $("planThis").addEventListener("click", () => { selectMeat(key); switchTab("planner"); });
+}
+
+/* ===================== DONENESS / WOOD / TIPS BUILDERS ===================== */
+function buildDonenessScale() {
+  $("donenessScale").innerHTML = DONE_ORDER.map(name => { const d = DONE[name];
+    return `<div class="lv"><div class="swatch" style="background:${d.color}"></div>
+      <div class="body"><div class="nm">${name}</div><div class="tp">${d.final}°F</div>
+      <div class="pl">pull at ${d.pull}°F</div></div></div>`; }).join("");
+}
+function buildDoneGrid() {
+  $("doneGrid").innerHTML = ORDER.map(key => { const m = MEATS[key];
+    const pull = m.tender ? "Probe tender" : m.doneness ? "Your doneness" : m.jerky ? "Dry/leathery" : m.pull+"°F";
+    return `<div class="done-card"><div class="head"><span class="e">${m.emoji}</span><span class="n">${m.label}</span></div>
+      <div class="temp-row"><span class="k">Pull off at</span><span class="t">${pull}</span></div>
+      <div class="tip">${m.doneTip}</div></div>`; }).join("");
+}
+function buildWoods() {
+  $("woodList").innerHTML = WOODS.map(([nm,str,lbl,forr]) =>
+    `<div class="wood-card"><div class="top"><div class="nm">🪵 ${nm}</div><div class="str ${str}">${lbl}</div></div>
+      <div class="for">${forr}</div></div>`).join("");
+}
+function buildTips() {
+  $("tipList").innerHTML = TIPS.map(([e,t,d]) => `<div class="tip-card"><div class="e">${e}</div><div><div class="tt">${t}</div><div class="td">${d}</div></div></div>`).join("");
+  $("troubleList").innerHTML = TROUBLE.map(([e,t,d]) => `<div class="trouble"><div class="e">${e}</div><div><div class="tt">${t}</div><div class="td">${d}</div></div></div>`).join("");
+}
+
+/* ===================== TIMER ===================== */
+let timer = { running:false, startMs:0, elapsedMs:0, interval:null };
+function initTimer() {
+  $("timerToggle").addEventListener("click", toggleTimer);
+  $("timerReset").addEventListener("click", resetTimer);
+  updateTimerDisplay();
+}
+function toggleTimer() {
+  if (timer.running) {
+    timer.running = false; timer.elapsedMs = Date.now() - timer.startMs;
+    clearInterval(timer.interval); $("timerToggle").textContent = "Resume";
+  } else {
+    timer.running = true; timer.startMs = Date.now() - timer.elapsedMs;
+    timer.interval = setInterval(updateTimerDisplay, 1000);
+    $("timerToggle").textContent = "Pause";
+  }
+}
+function resetTimer() {
+  timer.running = false; clearInterval(timer.interval); timer.elapsedMs = 0;
+  $("timerToggle").textContent = "Start"; updateTimerDisplay();
+}
+function updateTimerDisplay() {
+  const ms = timer.running ? Date.now() - timer.startMs : timer.elapsedMs;
+  const s = Math.floor(ms/1000), h = Math.floor(s/3600), mn = Math.floor((s%3600)/60), sec = s%60;
+  const p = n => String(n).padStart(2,"0");
+  $("timerClock").textContent = `${p(h)}:${p(mn)}:${p(sec)}`;
+  updateTimerEstimate(ms);
+}
+function updateTimerEstimate(ms) {
+  if (ms === undefined) ms = timer.running ? Date.now()-timer.startMs : timer.elapsedMs;
+  if (lastCookMin) {
+    const elapsedMin = ms/60000, pct = Math.min(100, elapsedMin/lastCookMin*100);
+    $("timerBar").style.width = pct + "%";
+    const remain = Math.max(0, lastCookMin - elapsedMin);
+    $("timerRem").textContent = remain > 0 ? `~${fmtDur(remain)} to go (estimate)` : "Past the estimate — go by temp!";
+  } else { $("timerBar").style.width = "0%"; $("timerRem").textContent = ""; }
+}
+
+/* ===================== GO ===================== */
+renderRecipe();
+</script>
+</body>
+</html>
