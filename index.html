@@ -207,6 +207,31 @@
   .family p { color:var(--text-dim); font-size:14.5px; line-height:1.65; margin:0 auto; max-width:600px; }
   .family .sig { color:var(--ember-2); font-family:var(--serif); font-size:17px; margin-top:12px; }
 
+  /* Search */
+  .search-wrap { position:relative; max-width:660px; margin:0 auto 26px; }
+  .search-box { display:flex; align-items:center; gap:10px; background:var(--panel); border:1px solid var(--border);
+    border-radius:30px; padding:13px 18px; transition:border-color .2s, box-shadow .2s; }
+  .search-box:focus-within { border-color:var(--ember); box-shadow:0 0 0 3px var(--ember-glow); }
+  .search-ico { font-size:16px; opacity:.85; }
+  .search-box input { flex:1; background:transparent; border:none; outline:none; color:var(--text); font-size:15px; }
+  .search-box input::placeholder { color:var(--text-faint); }
+  .search-clear { background:transparent; border:none; color:var(--text-faint); cursor:pointer; font-size:14px; padding:0 2px; }
+  .search-clear:hover { color:var(--text); }
+  .search-results { position:absolute; left:0; right:0; top:calc(100% + 8px); background:var(--panel);
+    border:1px solid var(--border); border-radius:16px; box-shadow:var(--shadow); overflow:hidden; display:none; z-index:60; }
+  .search-results.open { display:block; animation:rise .2s ease; }
+  .sr-row { display:flex; align-items:center; gap:12px; padding:12px 16px; cursor:pointer;
+    border-bottom:1px solid var(--border-soft); transition:background .12s; }
+  .sr-row:last-child { border-bottom:none; }
+  .sr-row:hover { background:var(--panel-2); }
+  .sr-ico { font-size:20px; flex:0 0 auto; }
+  .sr-main { flex:1; min-width:0; display:flex; flex-direction:column; }
+  .sr-title { font-size:14.5px; font-weight:700; }
+  .sr-sub { font-size:12.5px; color:var(--text-faint); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .sr-cat { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.5px; color:var(--ember-2);
+    background:rgba(255,122,47,.12); border-radius:20px; padding:4px 10px; flex:0 0 auto; }
+  .sr-empty { padding:16px; color:var(--text-dim); font-size:13.5px; line-height:1.5; }
+
   /* Clickable cards */
   .clickable { cursor:pointer; transition: transform .14s, border-color .2s, box-shadow .2s; position:relative; }
   .clickable:hover { transform:translateY(-3px); border-color:#5a4636; box-shadow:0 14px 34px rgba(0,0,0,.4); }
@@ -275,6 +300,16 @@
     <button class="tab" data-view="doneness">🌡️ Doneness</button>
     <button class="tab" data-view="wood">🪵 Wood &amp; Pairings</button>
     <button class="tab" data-view="tips">💡 Tips &amp; Fixes</button>
+  </div>
+
+  <div class="search-wrap">
+    <div class="search-box">
+      <span class="search-ico">🔎</span>
+      <input id="searchInput" type="text" autocomplete="off" spellcheck="false"
+        placeholder="Search anything — a cut, a temp, “stall”, “bitter smoke”, “wood for chicken”…" />
+      <button class="search-clear" id="searchClear" style="display:none" aria-label="Clear">✕</button>
+    </div>
+    <div class="search-results" id="searchResults"></div>
   </div>
 
   <!-- ============ PLANNER ============ -->
@@ -737,6 +772,8 @@ let selTemp = MEATS.brisket.temps[0];
 let selDone = "Medium-rare";
 let lastCookMin = null;
 let timer = { running:false, startMs:0, elapsedMs:0, interval:null };
+let SEARCH_INDEX = [];
+let searchTop = [];
 const $ = (id) => document.getElementById(id);
 
 /* ===================== INIT ===================== */
@@ -754,6 +791,15 @@ $("recipeSelect").addEventListener("change", renderRecipe);
 $("modalClose").addEventListener("click", closeModal);
 $("modal").addEventListener("click", (e) => { if (e.target === $("modal")) closeModal(); });
 document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeModal(); });
+
+buildSearchIndex();
+$("searchInput").addEventListener("input", runSearch);
+$("searchClear").addEventListener("click", () => { $("searchInput").value = ""; runSearch(); $("searchInput").focus(); });
+$("searchInput").addEventListener("keydown", (e) => {
+  if (e.key === "Enter" && searchTop.length) execResult(searchTop[0].act);
+  if (e.key === "Escape") { $("searchInput").value = ""; closeSearch(); $("searchClear").style.display = "none"; }
+});
+document.addEventListener("click", (e) => { if (!e.target.closest(".search-wrap")) closeSearch(); });
 
 /* ===================== TABS ===================== */
 function buildTabs() {
@@ -1034,6 +1080,64 @@ function openTrouble(i) {
   openModal(`<div class="modal-head"><div class="e">${e}</div><div><div class="kicker">Troubleshooting</div><div class="ttl">${t}</div></div></div>
     <div class="modal-body-text">${more}</div>`);
 }
+
+/* ===================== SEARCH ===================== */
+function esc(s) { return String(s).replace(/[&<>"]/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;" }[c])); }
+function buildSearchIndex() {
+  SEARCH_INDEX = [];
+  ORDER.forEach(key => { const m = MEATS[key];
+    const text = [m.label, m.group, m.doneTip, m.startNote, m.wood.join(" "), (m.recipe.rub||[]).join(" "), (m.recipe.method||[]).join(" "), (m.recipe.prep||[]).join(" "), m.recipe.serve].join(" ").toLowerCase();
+    SEARCH_INDEX.push({ icon:m.emoji, cat:"Recipe", title:m.label, sub:m.group + " · " + m.wood.join(", "), text, act:{t:"recipe", k:key} });
+  });
+  DONE_ORDER.forEach(name => { const d = DONE[name];
+    SEARCH_INDEX.push({ icon:"🥩", cat:"Doneness", title:name, sub:`${d.final}°F · pull at ${d.pull}°F`, text:(name + " " + d.desc + " doneness").toLowerCase(), act:{t:"done", k:name} });
+  });
+  WOODS.forEach(([nm,str,lbl,forr,detail], i) =>
+    SEARCH_INDEX.push({ icon:"🪵", cat:"Wood", title:nm, sub:lbl.replace("&amp;","&"), text:(nm + " wood " + lbl + " " + forr + " " + detail).toLowerCase(), act:{t:"wood", k:i} }));
+  TIPS.forEach(([e,t,d,more], i) =>
+    SEARCH_INDEX.push({ icon:e, cat:"Tip", title:t, sub:"Pitmaster tip", text:(t + " " + d + " " + more).toLowerCase(), act:{t:"tip", k:i} }));
+  TROUBLE.forEach(([e,t,d,more], i) =>
+    SEARCH_INDEX.push({ icon:e, cat:"Fix", title:t, sub:"Troubleshooting", text:(t + " " + d + " " + more).toLowerCase(), act:{t:"trouble", k:i} }));
+}
+function runSearch() {
+  const q = $("searchInput").value.trim().toLowerCase();
+  $("searchClear").style.display = q ? "block" : "none";
+  const box = $("searchResults");
+  if (!q) { box.classList.remove("open"); box.innerHTML = ""; searchTop = []; return; }
+  const terms = q.split(/\s+/);
+  const scored = [];
+  SEARCH_INDEX.forEach(it => {
+    const titleL = it.title.toLowerCase();
+    const allPresent = terms.every(term => it.text.includes(term) || titleL.includes(term));
+    if (!allPresent) return;
+    let score = 0;
+    terms.forEach(term => { if (titleL.includes(term)) score += 5; if (it.text.includes(term)) score += 1; });
+    scored.push({ it, score });
+  });
+  scored.sort((a, b) => b.score - a.score);
+  searchTop = scored.slice(0, 8).map(s => s.it);
+  if (!searchTop.length) {
+    box.innerHTML = `<div class="sr-empty">No matches for “${esc(q)}”. Try a cut name, a temperature, or a word like “stall”, “wood”, “rubbery”, or “dry”.</div>`;
+    box.classList.add("open"); return;
+  }
+  box.innerHTML = searchTop.map((it, idx) => `<div class="sr-row" data-i="${idx}">
+      <span class="sr-ico">${it.icon}</span>
+      <span class="sr-main"><span class="sr-title">${esc(it.title)}</span><span class="sr-sub">${esc(it.sub)}</span></span>
+      <span class="sr-cat">${it.cat}</span></div>`).join("");
+  box.querySelectorAll(".sr-row").forEach((row, idx) => row.addEventListener("click", () => execResult(searchTop[idx].act)));
+  box.classList.add("open");
+}
+function execResult(act) {
+  closeSearch();
+  $("searchInput").value = "";
+  $("searchClear").style.display = "none";
+  if (act.t === "recipe") { $("recipeSelect").value = act.k; renderRecipe(); switchTab("recipes"); }
+  else if (act.t === "done") { switchTab("doneness"); openDoneLevel(act.k); }
+  else if (act.t === "wood") { switchTab("wood"); openWood(act.k); }
+  else if (act.t === "tip") { switchTab("tips"); openTip(act.k); }
+  else if (act.t === "trouble") { switchTab("tips"); openTrouble(act.k); }
+}
+function closeSearch() { $("searchResults").classList.remove("open"); }
 
 /* ===================== TIMER ===================== */
 function initTimer() {
