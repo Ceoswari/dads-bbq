@@ -204,6 +204,39 @@
   .family p { color:var(--text-dim); font-size:14.5px; line-height:1.65; margin:0 auto; max-width:600px; }
   .family .sig { color:var(--ember-2); font-family:var(--serif); font-size:17px; margin-top:12px; }
 
+  /* Clickable cards */
+  .clickable { cursor:pointer; transition: transform .14s, border-color .2s, box-shadow .2s; position:relative; }
+  .clickable:hover { transform:translateY(-3px); border-color:#5a4636; box-shadow:0 14px 34px rgba(0,0,0,.4); }
+  .clickable::after { content:"Tap for more →"; position:absolute; right:14px; bottom:12px; font-size:11px; color:var(--text-faint); opacity:0; transition:opacity .2s; }
+  .clickable:hover::after { opacity:.85; }
+  .lv.clickable::after, .scale .lv.clickable::after { content:""; }
+
+  /* Modal */
+  .modal-overlay { position:fixed; inset:0; background:rgba(6,5,4,.78); backdrop-filter:blur(4px);
+    display:none; align-items:flex-start; justify-content:center; padding:40px 18px; z-index:100; overflow-y:auto; }
+  .modal-overlay.open { display:flex; animation: fade .2s ease; }
+  .modal-card { width:100%; max-width:620px; background:linear-gradient(180deg,var(--panel),var(--panel-2));
+    border:1px solid var(--border); border-radius:22px; padding:30px 30px 34px; box-shadow:var(--shadow);
+    position:relative; animation: rise .3s ease; margin:auto 0; }
+  .modal-close { position:absolute; top:16px; right:16px; width:36px; height:36px; border-radius:50%;
+    background:var(--bg-soft); border:1px solid var(--border); color:var(--text-dim); font-size:15px; cursor:pointer; transition:all .15s; }
+  .modal-close:hover { color:var(--text); border-color:#5a4636; }
+  .modal-head { display:flex; align-items:center; gap:16px; margin-bottom:6px; padding-right:30px; }
+  .modal-head .e { font-size:42px; }
+  .modal-head .ttl { font-family:var(--serif); font-size:26px; font-weight:800; line-height:1.15; }
+  .modal-head .kicker { font-size:12px; color:var(--ember-2); text-transform:uppercase; letter-spacing:1.2px; font-weight:700; }
+  .modal-temps { display:flex; gap:10px; flex-wrap:wrap; margin:16px 0; }
+  .modal-temps .mt { background:var(--bg-soft); border:1px solid var(--border); border-radius:12px; padding:10px 14px; text-align:center; flex:1; min-width:90px; }
+  .modal-temps .mt .v { font-family:var(--serif); font-size:20px; font-weight:800; color:var(--ember-2); }
+  .modal-temps .mt .k { font-size:11px; color:var(--text-faint); text-transform:uppercase; letter-spacing:.5px; margin-top:2px; }
+  .modal-body-text { font-size:15.5px; line-height:1.7; color:var(--text-dim); }
+  .modal-body-text b { color:var(--text); }
+  .modal-swatch { height:10px; border-radius:6px; margin:14px 0 4px; }
+  .modal-btn { margin-top:20px; display:inline-flex; align-items:center; gap:8px; background:linear-gradient(135deg,var(--ember),var(--ember-2));
+    color:#1a0f07; border:none; border-radius:12px; padding:12px 20px; font-size:14px; font-weight:700; cursor:pointer; }
+
+  @keyframes fade { from { opacity:0; } to { opacity:1; } }
+
   @media (max-width:720px) {
     h1 { font-size:30px; }
     .control-grid, .rec-grid, .summary, .done-grid, .scale { grid-template-columns:1fr; }
@@ -354,16 +387,23 @@
   </div>
 </div>
 
+<div class="modal-overlay" id="modal">
+  <div class="modal-card">
+    <button class="modal-close" id="modalClose" aria-label="Close">✕</button>
+    <div id="modalBody"></div>
+  </div>
+</div>
+
 <script>
 /* ===================== CONFIG ===================== */
 const DAD_NAME = "Andrew";   // 👈 change to whatever you'd like it to call him
 
 /* ===================== DONENESS LEVELS (beef/lamb) ===================== */
 const DONE = {
-  "Rare":        { final:125, pull:120, color:"#b23b3b" },
-  "Medium-rare": { final:133, pull:128, color:"#c75b46" },
-  "Medium":      { final:142, pull:137, color:"#cf7a4c" },
-  "Medium-well": { final:152, pull:147, color:"#b58a5e" },
+  "Rare":        { final:125, pull:120, color:"#b23b3b", desc:"Cool, deep-red center, very soft and almost jelly-like when you press it. Best reserved for the most tender cuts — a quick-seared tenderloin or a high-quality ribeye. Pull it off the heat at about 120°F and let carryover bring it up to 125°F." },
+  "Medium-rare": { final:133, pull:128, color:"#c75b46", desc:"Warm red-to-pink center that springs back gently to the touch — the steakhouse standard, and the sweet spot for almost all beef and lamb. Juicy, tender, full of flavor. Pull at 128°F and rest to 133°F." },
+  "Medium":      { final:142, pull:137, color:"#cf7a4c", desc:"Mostly pink center fading toward the edges, noticeably firmer. A safe, crowd-pleasing doneness when you're feeding people with mixed preferences. Pull at 137°F and rest to 142°F." },
+  "Medium-well": { final:152, pull:147, color:"#b58a5e", desc:"Just a hint of pink in the middle, firm throughout. Go much past this and leaner cuts start to dry out, so pull right on time at 147°F. If someone wants it fully well-done, aim for ~160°F and expect a drier result." },
 };
 const DONE_ORDER = ["Rare","Medium-rare","Medium","Medium-well"];
 
@@ -634,35 +674,58 @@ const GROUPS = ["Beef","Poultry","Lamb","Seafood"];
 
 /* ===================== WOODS ===================== */
 const WOODS = [
-  ["Apple","mild","Mild &amp; sweet","Poultry, fish, lamb — gentle and fruity, hard to overdo."],
-  ["Cherry","mild","Mild &amp; sweet","Everything. Adds a beautiful mahogany color; pairs with anything."],
-  ["Alder","mild","Mild","Fish, especially salmon — the classic, delicate choice."],
-  ["Pecan","med","Medium","Poultry, beef, lamb — like a softer, sweeter hickory."],
-  ["Maple","med","Medium","Poultry and a touch of sweetness on most cuts."],
-  ["Oak","med","Medium · all-rounder","The workhorse for brisket and beef. Steady, balanced, never harsh."],
-  ["Hickory","strong","Strong","Beef and big cuts — bold and bacon-y. Easy to overdo, so go light."],
-  ["Mesquite","strong","Strong","Beef, quick cooks, jerky — intense and earthy. Use sparingly."],
+  ["Apple","mild","Mild &amp; sweet","Poultry, fish, lamb — gentle and fruity, hard to overdo.",
+    "Apple is the friendliest wood there is — light, sweet, and slightly fruity. It's almost impossible to over-smoke with it, which makes it perfect for poultry, fish, and anything delicate. It builds flavor slowly, so it's a great choice for longer cooks where you don't want the smoke to turn harsh. <b>Pairs beautifully with:</b> chicken, turkey, salmon, and a touch of it on almost anything."],
+  ["Cherry","mild","Mild &amp; sweet","Everything. Adds a beautiful mahogany color; pairs with anything.",
+    "Cherry is the great all-rounder of the fruit woods — mild and subtly sweet, and famous for the gorgeous deep-mahogany color it gives the bark. It plays well with everything and is a fantastic wood to blend with a stronger one like oak or hickory to soften their edge. <b>Pairs beautifully with:</b> beef, poultry, lamb, pork-free everything — truly anything."],
+  ["Alder","mild","Mild","Fish, especially salmon — the classic, delicate choice.",
+    "Alder is light and slightly sweet, the traditional wood of the Pacific Northwest for smoking salmon. Its delicate profile won't overpower fish or other tender foods. If you smoke a lot of salmon or trout, this is your wood. <b>Pairs beautifully with:</b> salmon, trout, and other fish; also nice on poultry."],
+  ["Pecan","med","Medium","Poultry, beef, lamb — like a softer, sweeter hickory.",
+    "Pecan is like hickory's mellower cousin — rich and nutty but sweeter and less aggressive. It's a versatile middle-of-the-road wood that suits almost anything and is especially lovely on poultry and beef. A great everyday wood. <b>Pairs beautifully with:</b> chicken, turkey, beef, lamb."],
+  ["Maple","med","Medium","Poultry and a touch of sweetness on most cuts.",
+    "Maple brings a mild, distinctly sweet smoke that's wonderful on poultry and adds a gentle sweetness to most cuts. It's a good wood to blend with something bolder. <b>Pairs beautifully with:</b> chicken, turkey, and as a sweet accent on beef."],
+  ["Oak","med","Medium · all-rounder","The workhorse for brisket and beef. Steady, balanced, never harsh.",
+    "Oak is the backbone of Texas barbecue and the go-to for brisket and big beef cuts. It burns steady and clean, delivering a solid, balanced smoke that's bolder than the fruit woods but never harsh or bitter. If you only keep one wood on hand, make it oak. <b>Pairs beautifully with:</b> brisket, beef ribs, tri-tip, lamb — the heavy hitters."],
+  ["Hickory","strong","Strong","Beef and big cuts — bold and bacon-y. Easy to overdo, so go light.",
+    "Hickory is bold, savory, and almost bacon-like — the classic strong barbecue wood. It's fantastic on beef and big cuts, but it's easy to overdo: too much hickory turns bitter, so use it in moderation or blend it with a fruit wood. <b>Pairs beautifully with:</b> brisket, beef ribs, burgers, wings."],
+  ["Mesquite","strong","Strong","Beef, quick cooks, jerky — intense and earthy. Use sparingly.",
+    "Mesquite is the most intense wood — earthy, bold, and fast-burning. It's excellent for quick, hot cooks and for jerky, but on long low-and-slow cooks it can become overpowering and acrid. A little goes a long way. <b>Pairs beautifully with:</b> beef jerky, steaks, quick high-heat beef cooks."],
 ];
 
 /* ===================== TIPS + TROUBLE ===================== */
 const TIPS = [
-  ["🧂","Salt early, salt generously","A dry brine — salt and rest the meat uncovered in the fridge (hours for small cuts, overnight for big ones) — seasons deep and dries the surface for better bark and crispier skin."],
-  ["🌡️","Cook to temp, not to the clock","Every cut and smoker is different. This app gets you close; your thermometer has the final word. Budget extra time — you can always rest longer."],
-  ["😤","Ride out the stall","Around 150–170°F the temp stalls for hours as moisture evaporates. Totally normal. Wrap in foil or butcher paper to push through faster (the 'Texas crutch')."],
-  ["💨","Thin blue smoke, not white","Billowing white smoke makes food bitter. You want thin, almost-invisible blue smoke. Keep airflow open and don't smother the fire."],
-  ["⏳","The rest is not optional","Resting lets juices redistribute. A brisket or big roast can rest 1–2 hours wrapped in towels in a dry cooler and stay perfectly hot."],
-  ["💧","Keep a water pan in there","A pan of water steadies the temperature and keeps the cook humid — better tenderness and a stronger smoke ring."],
-  ["🔪","Always slice against the grain","Find the direction the muscle fibers run and cut across them. It's the difference between tender and chewy."],
-  ["🍑","Spritz to build bark","After the bark sets, a light spritz of water, apple juice, or broth every hour keeps the surface tacky so smoke and rub keep building."],
-  ["🔥","Manage the fire, not the food","Set a steady pit temp and resist opening the lid — 'if you're lookin', you ain't cookin'.' Every peek adds time."],
+  ["🧂","Salt early, salt generously","A dry brine — salt and rest the meat uncovered in the fridge (hours for small cuts, overnight for big ones) — seasons deep and dries the surface for better bark and crispier skin.",
+    "Salt needs time to do two things: dissolve and travel inward to season the meat all the way through, and draw moisture to the surface that then dries into a tacky layer smoke loves to cling to. For steaks and chops, an hour ahead is plenty. For roasts and whole birds, salt the night before and leave it uncovered in the fridge — the dry surface is the secret to crispy poultry skin and a deep beefy bark. Use coarse kosher salt, and don't be timid; most of it stays on the surface."],
+  ["🌡️","Cook to temp, not to the clock","Every cut and smoker is different. This app gets you close; your thermometer has the final word. Budget extra time — you can always rest longer.",
+    "Cooking times are estimates — the same brisket can finish two hours apart on two different days depending on the meat, the weather, and how often you open the lid. A good instant-read thermometer (and ideally a leave-in probe) takes all the guesswork out. The planner here is for scheduling your day, not for deciding when something's done. Always build in a buffer: a finished cook can rest happily for an hour or more, so it's far better to be early than scrambling while guests wait."],
+  ["😤","Ride out the stall","Around 150–170°F the temp stalls for hours as moisture evaporates. Totally normal. Wrap in foil or butcher paper to push through faster (the 'Texas crutch').",
+    "The stall happens because the meat is sweating — surface moisture evaporates and cools the meat as fast as the smoker heats it, so the internal temperature flatlines, sometimes for hours. It's completely normal and not a sign anything's wrong. You have two choices: wait it out for maximum bark, or wrap the meat tightly in foil (faster, softer bark) or butcher paper (a little slower, keeps the bark firmer) to trap that moisture and power through. Don't panic and crank the heat — just be patient or wrap."],
+  ["💨","Thin blue smoke, not white","Billowing white smoke makes food bitter. You want thin, almost-invisible blue smoke. Keep airflow open and don't smother the fire.",
+    "The color of your smoke tells you everything. Thick white or grey billowing smoke means the fire is smoldering and starved of air — that smoke carries bitter, acrid compounds (creosote) that ruin food. What you want is thin, almost-invisible smoke with a faint blue tint, which means clean, complete combustion. Get there by keeping your air vents open, using dry, seasoned wood, and never smothering the fire with too many chunks at once. When in doubt, less wood and more airflow."],
+  ["⏳","The rest is not optional","Resting lets juices redistribute. A brisket or big roast can rest 1–2 hours wrapped in towels in a dry cooler and stay perfectly hot.",
+    "While meat cooks, the heat drives moisture toward the cooler center. Resting lets that moisture redistribute evenly, so it stays in the meat instead of pouring out the moment you slice. Small cuts like steaks need 5–10 minutes; roasts and birds want 20–30. For the big low-and-slow cuts, wrap them in towels and set them in a dry (empty) cooler — they'll hold serving temperature for one to two hours and actually get more tender as they rest. Skipping the rest is the most common reason good barbecue ends up dry."],
+  ["💧","Keep a water pan in there","A pan of water steadies the temperature and keeps the cook humid — better tenderness and a stronger smoke ring.",
+    "A simple pan of water in the smoker does a lot of quiet work. It acts as a heat sink that buffers temperature swings, so your pit holds steadier. It also keeps the cooking environment humid, which slows surface drying, helps smoke stick, and promotes a deeper smoke ring. Just refill it as it evaporates on long cooks. It's one of the easiest upgrades to a more forgiving, more consistent cook."],
+  ["🔪","Always slice against the grain","Find the direction the muscle fibers run and cut across them. It's the difference between tender and chewy.",
+    "Every cut of meat has a 'grain' — the direction its long muscle fibers run. If you slice with the grain, each bite is a mouthful of long, chewy fibers. Slice across (against) the grain and you shorten those fibers, so the meat practically falls apart in your mouth. On a brisket the grain even changes direction between the flat and the point, so separate them and slice each against its own grain. Look closely before you cut — it's the single easiest way to make any cut more tender."],
+  ["🍑","Spritz to build bark","After the bark sets, a light spritz of water, apple juice, or broth every hour keeps the surface tacky so smoke and rub keep building.",
+    "Once the rub has set into a crust (usually after the first 2–3 hours — don't spritz before then or you'll wash it off), a light misting every hour keeps the surface tacky. That helps smoke and color keep building, cools the surface slightly to slow the cook, and adds a thin layer of flavor. Water works fine; apple juice or broth add a little extra. Keep it light — you're misting, not soaking — and resist over-opening the lid to do it."],
+  ["🔥","Manage the fire, not the food","Set a steady pit temp and resist opening the lid — 'if you're lookin', you ain't cookin'.' Every peek adds time.",
+    "Great barbecue is really about fire management, not fussing with the meat. Get your pit dialed in to a steady temperature before the food goes on, then mostly leave it alone. Every time you open the lid you dump heat and smoke and add time to the cook. Trust your thermometer probes to tell you what's happening inside instead of peeking. Set it, steady it, and let the smoker do the work."],
 ];
 const TROUBLE = [
-  ["🥩","My brisket came out tough","It wasn't done. Tough means more time — collagen needs to render. Go past 200°F until a probe slides in with no resistance, and rest it long."],
-  ["🍗","My chicken skin is rubbery","Smoke temp was too low. Cook poultry hotter (300°F+) or crisp the skin over high heat at the end. Dry skin before cooking helps a lot."],
-  ["⭕","No smoke ring","Smoke ring forms early and cold. Start with cold meat, keep humidity up (water pan), and don't wrap too soon. It's cosmetic — flavor doesn't depend on it."],
-  ["😖","Everything tastes bitter / too smoky","Too much white smoke or creosote. Use less wood, keep good airflow, and aim for thin blue smoke. You can over-smoke — especially poultry and fish."],
-  ["🐌","The stall is taking forever","Normal — it can last hours. Wrap in foil or butcher paper to power through, or just wait it out for more bark. Don't crank the heat in a panic."],
-  ["💦","My meat is dry","Likely overcooked or under-rested. Pull at the right temp, keep a water pan in the cook, and always rest before slicing. Slicing against the grain helps too."],
+  ["🥩","My brisket came out tough","It wasn't done. Tough means more time — collagen needs to render. Go past 200°F until a probe slides in with no resistance, and rest it long.",
+    "Tough brisket (or short ribs, or chuck) almost always means it was pulled too early. These cuts are full of tough connective tissue (collagen) that only breaks down into silky gelatin at high internal temperatures held over time. If it's chewy, it needs more time, not less — keep cooking, often well past 200°F, until a probe slides into the thickest part with zero resistance, like going into warm butter. Then rest it long (an hour or more). Pulling at a number on the dial instead of by feel is the #1 cause of tough brisket."],
+  ["🍗","My chicken skin is rubbery","Smoke temp was too low. Cook poultry hotter (300°F+) or crisp the skin over high heat at the end. Dry skin before cooking helps a lot.",
+    "Rubbery skin comes from cooking poultry too low and slow — the fat in the skin never gets hot enough to render and crisp. Two fixes: cook poultry hotter than you would beef (300°F and up), and/or finish it over high direct heat for a few minutes to crisp the skin. Just as important is starting with dry skin — pat it bone-dry, and ideally salt it and let it air-dry uncovered in the fridge for a few hours first. A little baking powder in the rub also helps the skin crisp."],
+  ["⭕","No smoke ring","Smoke ring forms early and cold. Start with cold meat, keep humidity up (water pan), and don't wrap too soon. It's cosmetic — flavor doesn't depend on it.",
+    "That pink ring just under the bark forms early in the cook, while the surface is still cold and moist, from a reaction between smoke gases and the meat. To encourage it: put the meat on cold (straight from the fridge), keep the smoker humid with a water pan, and don't wrap too early. That said — the smoke ring is purely cosmetic. It looks impressive but has no effect on flavor or tenderness, so don't chase it at the expense of a good cook."],
+  ["😖","Everything tastes bitter / too smoky","Too much white smoke or creosote. Use less wood, keep good airflow, and aim for thin blue smoke. You can over-smoke — especially poultry and fish.",
+    "Bitter, ashtray-like flavor is creosote — the residue from dirty, smoldering smoke. The culprit is almost always thick white smoke from a starved fire or too much wood. The fix: use less wood, make sure your fire has plenty of airflow, and burn dry, seasoned wood so it combusts cleanly into thin blue smoke. Yes, you absolutely can over-smoke food — delicate items like poultry and fish need a much lighter touch than beef. When in doubt, dial the wood back."],
+  ["🐌","The stall is taking forever","Normal — it can last hours. Wrap in foil or butcher paper to power through, or just wait it out for more bark. Don't crank the heat in a panic.",
+    "The stall — where the internal temp parks at 150–170°F and refuses to climb — can last several hours, and it's completely normal (it's evaporative cooling from the meat sweating). Your options are simple: wait it out for the best bark, or wrap the meat tightly in foil or butcher paper to trap the moisture and push through much faster. What you should NOT do is panic and crank the heat way up — that just dries out the surface. This is exactly why you build a time buffer into your plan."],
+  ["💦","My meat is dry","Likely overcooked or under-rested. Pull at the right temp, keep a water pan in the cook, and always rest before slicing. Slicing against the grain helps too.",
+    "Dry meat usually traces back to one of three things: it was cooked past its ideal temperature, it wasn't rested before slicing, or it was a lean cut pushed too far. Use a thermometer and pull at the right pull temp — especially for lean cuts and white poultry meat, where even 10°F too far makes a big difference. Keep a water pan in the smoker for humidity, and always rest the meat so juices redistribute instead of running onto the cutting board. Slicing against the grain makes whatever moisture is there feel juicier too."],
 ];
 
 /* ===================== STATE ===================== */
@@ -670,6 +733,7 @@ let selMeat = "brisket";
 let selTemp = MEATS.brisket.temps[0];
 let selDone = "Medium-rare";
 let lastCookMin = null;
+let timer = { running:false, startMs:0, elapsedMs:0, interval:null };
 const $ = (id) => document.getElementById(id);
 
 /* ===================== INIT ===================== */
@@ -684,6 +748,9 @@ selectMeat("brisket");
 $("viewRecipeBtn").addEventListener("click", () => { $("recipeSelect").value = selMeat; renderRecipe(); switchTab("recipes"); });
 $("printBtn").addEventListener("click", () => window.print());
 $("recipeSelect").addEventListener("change", renderRecipe);
+$("modalClose").addEventListener("click", closeModal);
+$("modal").addEventListener("click", (e) => { if (e.target === $("modal")) closeModal(); });
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeModal(); });
 
 /* ===================== TABS ===================== */
 function buildTabs() {
@@ -888,29 +955,84 @@ function renderRecipe() {
 /* ===================== DONENESS / WOOD / TIPS BUILDERS ===================== */
 function buildDonenessScale() {
   $("donenessScale").innerHTML = DONE_ORDER.map(name => { const d = DONE[name];
-    return `<div class="lv"><div class="swatch" style="background:${d.color}"></div>
+    return `<div class="lv clickable" data-lvl="${name}"><div class="swatch" style="background:${d.color}"></div>
       <div class="body"><div class="nm">${name}</div><div class="tp">${d.final}°F</div>
       <div class="pl">pull at ${d.pull}°F</div></div></div>`; }).join("");
+  $("donenessScale").querySelectorAll("[data-lvl]").forEach(el => el.addEventListener("click", () => openDoneLevel(el.dataset.lvl)));
 }
 function buildDoneGrid() {
   $("doneGrid").innerHTML = ORDER.map(key => { const m = MEATS[key];
     const pull = m.tender ? "Probe tender" : m.doneness ? "Your doneness" : m.jerky ? "Dry/leathery" : m.pull+"°F";
-    return `<div class="done-card"><div class="head"><span class="e">${m.emoji}</span><span class="n">${m.label}</span></div>
+    return `<div class="done-card clickable" data-key="${key}"><div class="head"><span class="e">${m.emoji}</span><span class="n">${m.label}</span></div>
       <div class="temp-row"><span class="k">Pull off at</span><span class="t">${pull}</span></div>
       <div class="tip">${m.doneTip}</div></div>`; }).join("");
+  $("doneGrid").querySelectorAll("[data-key]").forEach(el => el.addEventListener("click", () => openCutModal(el.dataset.key)));
 }
 function buildWoods() {
-  $("woodList").innerHTML = WOODS.map(([nm,str,lbl,forr]) =>
-    `<div class="wood-card"><div class="top"><div class="nm">🪵 ${nm}</div><div class="str ${str}">${lbl}</div></div>
+  $("woodList").innerHTML = WOODS.map(([nm,str,lbl,forr], i) =>
+    `<div class="wood-card clickable" data-idx="${i}"><div class="top"><div class="nm">🪵 ${nm}</div><div class="str ${str}">${lbl}</div></div>
       <div class="for">${forr}</div></div>`).join("");
+  $("woodList").querySelectorAll("[data-idx]").forEach(el => el.addEventListener("click", () => openWood(+el.dataset.idx)));
 }
 function buildTips() {
-  $("tipList").innerHTML = TIPS.map(([e,t,d]) => `<div class="tip-card"><div class="e">${e}</div><div><div class="tt">${t}</div><div class="td">${d}</div></div></div>`).join("");
-  $("troubleList").innerHTML = TROUBLE.map(([e,t,d]) => `<div class="trouble"><div class="e">${e}</div><div><div class="tt">${t}</div><div class="td">${d}</div></div></div>`).join("");
+  $("tipList").innerHTML = TIPS.map(([e,t,d], i) => `<div class="tip-card clickable" data-idx="${i}"><div class="e">${e}</div><div><div class="tt">${t}</div><div class="td">${d}</div></div></div>`).join("");
+  $("tipList").querySelectorAll("[data-idx]").forEach(el => el.addEventListener("click", () => openTip(+el.dataset.idx)));
+  $("troubleList").innerHTML = TROUBLE.map(([e,t,d], i) => `<div class="trouble clickable" data-idx="${i}"><div class="e">${e}</div><div><div class="tt">${t}</div><div class="td">${d}</div></div></div>`).join("");
+  $("troubleList").querySelectorAll("[data-idx]").forEach(el => el.addEventListener("click", () => openTrouble(+el.dataset.idx)));
+}
+
+/* ===================== MODAL ===================== */
+function openModal(html) {
+  $("modalBody").innerHTML = html;
+  $("modal").classList.add("open");
+  document.body.style.overflow = "hidden";
+  const rb = $("modalBody").querySelector("[data-recipe]");
+  if (rb) rb.addEventListener("click", () => { const k = rb.getAttribute("data-recipe"); closeModal(); $("recipeSelect").value = k; renderRecipe(); switchTab("recipes"); });
+}
+function closeModal() { $("modal").classList.remove("open"); document.body.style.overflow = ""; }
+
+function openDoneLevel(name) {
+  const d = DONE[name];
+  openModal(`
+    <div class="modal-head"><div class="e">🥩</div><div><div class="kicker">Doneness level</div><div class="ttl">${name}</div></div></div>
+    <div class="modal-swatch" style="background:${d.color}"></div>
+    <div class="modal-temps">
+      <div class="mt"><div class="v">${d.final}°F</div><div class="k">Final temp (rested)</div></div>
+      <div class="mt"><div class="v">${d.pull}°F</div><div class="k">Pull off heat at</div></div>
+    </div>
+    <div class="modal-body-text">${d.desc}</div>`);
+}
+function openCutModal(key) {
+  const m = MEATS[key];
+  const pull = m.tender ? "~203°F" : m.doneness ? "Your doneness" : m.jerky ? "Dry" : m.pull + "°F";
+  openModal(`
+    <div class="modal-head"><div class="e">${m.emoji}</div><div><div class="kicker">${m.group}</div><div class="ttl">${m.label}</div></div></div>
+    <div class="modal-temps">
+      <div class="mt"><div class="v">${pull}</div><div class="k">Pull temp</div></div>
+      <div class="mt"><div class="v">${(m.temps?m.temps.join("–"):m.cook.temp)}°F</div><div class="k">Smoker</div></div>
+      <div class="mt"><div class="v">${m.rest?fmtDur(m.rest):"—"}</div><div class="k">Rest</div></div>
+    </div>
+    <div class="modal-body-text">${m.doneTip}<br><br><b>Best wood:</b> ${m.wood.join(", ")}.</div>
+    <button class="modal-btn" data-recipe="${key}">📖 See the full recipe →</button>`);
+}
+function openWood(i) {
+  const [nm, str, lbl, forr, detail] = WOODS[i];
+  openModal(`
+    <div class="modal-head"><div class="e">🪵</div><div><div class="kicker">Smoking wood · ${lbl}</div><div class="ttl">${nm}</div></div></div>
+    <div class="modal-body-text">${detail}</div>`);
+}
+function openTip(i) {
+  const [e, t, d, more] = TIPS[i];
+  openModal(`<div class="modal-head"><div class="e">${e}</div><div><div class="kicker">Pitmaster tip</div><div class="ttl">${t}</div></div></div>
+    <div class="modal-body-text">${more}</div>`);
+}
+function openTrouble(i) {
+  const [e, t, d, more] = TROUBLE[i];
+  openModal(`<div class="modal-head"><div class="e">${e}</div><div><div class="kicker">Troubleshooting</div><div class="ttl">${t}</div></div></div>
+    <div class="modal-body-text">${more}</div>`);
 }
 
 /* ===================== TIMER ===================== */
-let timer = { running:false, startMs:0, elapsedMs:0, interval:null };
 function initTimer() {
   $("timerToggle").addEventListener("click", toggleTimer);
   $("timerReset").addEventListener("click", resetTimer);
