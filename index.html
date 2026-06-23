@@ -232,6 +232,27 @@
     background:rgba(255,122,47,.12); border-radius:20px; padding:4px 10px; flex:0 0 auto; }
   .sr-empty { padding:16px; color:var(--text-dim); font-size:13.5px; line-height:1.5; }
 
+  /* Modal forms */
+  .mform label { display:block; font-size:13px; font-weight:700; color:var(--text-dim); margin:14px 0 6px; }
+  .mform input, .mform select, .mform textarea { width:100%; background:var(--bg-soft); border:1px solid var(--border);
+    color:var(--text); border-radius:10px; padding:11px 13px; font-size:14.5px; outline:none; font-family:inherit; }
+  .mform input:focus, .mform select:focus, .mform textarea:focus { border-color:var(--ember); box-shadow:0 0 0 3px var(--ember-glow); }
+  .mform textarea { resize:vertical; }
+  .mrow { display:flex; gap:12px; } .mrow > div { flex:1; min-width:0; }
+  .stars { font-size:28px; color:var(--ember-2); letter-spacing:4px; cursor:pointer; user-select:none; padding-top:6px; }
+  .stars span { cursor:pointer; }
+
+  /* Cook log */
+  .log-card { background:linear-gradient(180deg,var(--panel),var(--panel-2)); border:1px solid var(--border); border-radius:16px; padding:18px 20px; margin-bottom:14px; }
+  .log-top { display:flex; justify-content:space-between; align-items:flex-start; gap:10px; }
+  .log-title { font-weight:800; font-size:17px; }
+  .log-date { color:var(--text-faint); font-size:12.5px; margin-top:2px; }
+  .log-rating { color:var(--ember-2); font-size:16px; letter-spacing:2px; white-space:nowrap; }
+  .log-chips { display:flex; gap:8px; flex-wrap:wrap; margin:12px 0; }
+  .log-chips span { background:var(--bg-soft); border:1px solid var(--border); border-radius:20px; padding:5px 11px; font-size:12.5px; color:var(--text-dim); }
+  .log-notes { color:var(--text-dim); font-size:14px; line-height:1.6; margin-bottom:12px; white-space:pre-wrap; }
+  .empty-log { text-align:center; color:var(--text-dim); font-size:15px; line-height:1.6; padding:48px 20px; border:1px dashed var(--border); border-radius:16px; }
+
   /* Clickable cards */
   .clickable { cursor:pointer; transition: transform .14s, border-color .2s, box-shadow .2s; position:relative; }
   .clickable:hover { transform:translateY(-3px); border-color:#5a4636; box-shadow:0 14px 34px rgba(0,0,0,.4); }
@@ -300,6 +321,7 @@
     <button class="tab" data-view="doneness">🌡️ Doneness</button>
     <button class="tab" data-view="wood">🪵 Wood &amp; Pairings</button>
     <button class="tab" data-view="tips">💡 Tips &amp; Fixes</button>
+    <button class="tab" data-view="cooklog">📓 Cook Log</button>
   </div>
 
   <div class="search-wrap">
@@ -377,8 +399,12 @@
 
   <!-- ============ RECIPES ============ -->
   <section class="view" id="recipes">
+    <div class="row-actions" style="margin-bottom:16px">
+      <button class="mini-btn" id="addRecipeBtn">＋ Add your own recipe</button>
+      <button class="mini-btn" id="ieBtn">📂 Backup &amp; import</button>
+    </div>
     <div class="field" style="margin-bottom:22px">
-      <label>Pick a cut to see the full recipe</label>
+      <label>Pick a cut or recipe to see the full version</label>
       <div class="pickwrap"><select id="recipeSelect"></select><span class="car">▾</span></div>
     </div>
     <div id="recipeBody"></div>
@@ -417,6 +443,18 @@
     <div class="sec-title">🔧 Troubleshooting</div>
     <div id="troubleList"></div>
   </section>
+
+  <!-- ============ COOK LOG ============ -->
+  <section class="view" id="cooklog">
+    <p class="helper" style="margin-bottom:16px">Your personal grilling diary — log every cook and the lessons you learn, all saved right here on this device.</p>
+    <div class="row-actions" style="margin-bottom:18px">
+      <button class="mini-btn" id="addLogBtn">＋ Log a cook</button>
+      <button class="mini-btn" id="ieBtn2">📂 Backup &amp; import</button>
+    </div>
+    <div id="logList"></div>
+  </section>
+
+  <input type="file" id="importFile" accept=".json,application/json,text/plain" style="display:none" />
 
   <div class="family">
     <div class="ttl">For the best pitmaster we know 🍖</div>
@@ -774,13 +812,19 @@ let lastCookMin = null;
 let timer = { running:false, startMs:0, elapsedMs:0, interval:null };
 let SEARCH_INDEX = [];
 let searchTop = [];
+let customRecipes = [];
+let cookLog = [];
+const LS_RECIPES = "dadsbbq_recipes_v1";
+const LS_LOG = "dadsbbq_log_v1";
 const $ = (id) => document.getElementById(id);
 
 /* ===================== INIT ===================== */
 $("ribbonName").textContent = DAD_NAME;
 document.title = DAD_NAME + "'s BBQ Command Center";
+customRecipes = loadLS(LS_RECIPES, []);
+cookLog = loadLS(LS_LOG, []);
 buildTabs(); buildMeatPicker(); buildMoreSelect(); buildRecipeSelect();
-buildDonenessScale(); buildDoneGrid(); buildWoods(); buildTips();
+buildDonenessScale(); buildDoneGrid(); buildWoods(); buildTips(); buildLog();
 setDefaultServeTime(); initTimer();
 selectMeat("brisket");
 
@@ -800,6 +844,12 @@ $("searchInput").addEventListener("keydown", (e) => {
   if (e.key === "Escape") { $("searchInput").value = ""; closeSearch(); $("searchClear").style.display = "none"; }
 });
 document.addEventListener("click", (e) => { if (!e.target.closest(".search-wrap")) closeSearch(); });
+
+$("addRecipeBtn").addEventListener("click", () => openAddRecipe());
+$("ieBtn").addEventListener("click", openImportExport);
+$("ieBtn2").addEventListener("click", openImportExport);
+$("addLogBtn").addEventListener("click", openLogEntry);
+$("importFile").addEventListener("change", handleImportFile);
 
 /* ===================== TABS ===================== */
 function buildTabs() {
@@ -836,7 +886,7 @@ function buildMoreSelect() {
   s.addEventListener("change", () => { if (s.value) selectMeat(s.value); });
 }
 function buildRecipeSelect() {
-  const s = $("recipeSelect"); s.innerHTML = "";
+  const s = $("recipeSelect"); const prev = s.value; s.innerHTML = "";
   GROUPS.forEach(g => {
     const og = document.createElement("optgroup"); og.label = g;
     ORDER.filter(k => MEATS[k].group === g).forEach(k => {
@@ -844,6 +894,12 @@ function buildRecipeSelect() {
     });
     s.appendChild(og);
   });
+  if (customRecipes.length) {
+    const og = document.createElement("optgroup"); og.label = "⭐ My Recipes";
+    customRecipes.forEach(r => { const o = document.createElement("option"); o.value = "custom:" + r.id; o.textContent = `${r.emoji || "🍖"}  ${r.name}`; og.appendChild(o); });
+    s.appendChild(og);
+  }
+  if (prev && [...s.options].some(o => o.value === prev)) s.value = prev;
 }
 
 function selectMeat(key) {
@@ -979,7 +1035,9 @@ function render() {
 
 /* ===================== RECIPE RENDER ===================== */
 function renderRecipe() {
-  const key = $("recipeSelect").value; const m = MEATS[key]; const r = m.recipe;
+  const key = $("recipeSelect").value;
+  if (key && key.indexOf("custom:") === 0) { renderCustomRecipe(key.slice(7)); return; }
+  const m = MEATS[key]; const r = m.recipe;
   const pull = m.tender ? "~203°F (probe tender)" : m.doneness ? "to your doneness" : m.jerky ? "dry & leathery" : m.pull+"°F";
   let html = `
     <div class="recipe-head"><div class="e">${m.emoji}</div><div>
@@ -1098,6 +1156,14 @@ function buildSearchIndex() {
     SEARCH_INDEX.push({ icon:e, cat:"Tip", title:t, sub:"Pitmaster tip", text:(t + " " + d + " " + more).toLowerCase(), act:{t:"tip", k:i} }));
   TROUBLE.forEach(([e,t,d,more], i) =>
     SEARCH_INDEX.push({ icon:e, cat:"Fix", title:t, sub:"Troubleshooting", text:(t + " " + d + " " + more).toLowerCase(), act:{t:"trouble", k:i} }));
+  customRecipes.forEach(r => {
+    const text = [r.name, r.group, r.wood, (r.ingredients||[]).join(" "), (r.steps||[]).join(" "), r.serve].join(" ").toLowerCase();
+    SEARCH_INDEX.push({ icon:r.emoji || "🍖", cat:"My Recipe", title:r.name, sub:"Your saved recipe", text, act:{t:"customrecipe", k:r.id} });
+  });
+  cookLog.forEach(e => {
+    const text = [e.title, e.wood, e.notes, e.weight].join(" ").toLowerCase();
+    SEARCH_INDEX.push({ icon:"📓", cat:"Log", title:e.title || "Cook", sub:fmtLogDate(e.date), text, act:{t:"log", k:e.id} });
+  });
 }
 function runSearch() {
   const q = $("searchInput").value.trim().toLowerCase();
@@ -1136,8 +1202,210 @@ function execResult(act) {
   else if (act.t === "wood") { switchTab("wood"); openWood(act.k); }
   else if (act.t === "tip") { switchTab("tips"); openTip(act.k); }
   else if (act.t === "trouble") { switchTab("tips"); openTrouble(act.k); }
+  else if (act.t === "customrecipe") { $("recipeSelect").value = "custom:" + act.k; renderRecipe(); switchTab("recipes"); }
+  else if (act.t === "log") { switchTab("cooklog"); }
 }
 function closeSearch() { $("searchResults").classList.remove("open"); }
+
+/* ===================== STORAGE + CUSTOM RECIPES + COOK LOG ===================== */
+function loadLS(key, fallback) { try { const v = JSON.parse(localStorage.getItem(key)); return Array.isArray(v) ? v : fallback; } catch (e) { return fallback; } }
+function saveLS(key, val) { try { localStorage.setItem(key, JSON.stringify(val)); } catch (e) { alert("Couldn't save — this browser may be blocking storage (e.g. Private mode)."); } }
+function refreshAll() { buildRecipeSelect(); buildSearchIndex(); buildLog(); }
+function uid(p) { return p + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
+
+function renderCustomRecipe(id) {
+  const rec = customRecipes.find(x => x.id === id);
+  if (!rec) { $("recipeBody").innerHTML = `<p class="note">That recipe was removed.</p>`; return; }
+  const ing = rec.ingredients || [], steps = rec.steps || [];
+  $("recipeBody").innerHTML = `
+    <div class="recipe-head"><div class="e">${rec.emoji || "🍖"}</div><div>
+      <div class="g">⭐ My Recipe · ${esc(rec.group || "Custom")}</div><div class="n">${esc(rec.name)}</div></div></div>
+    <div class="chips">
+      ${rec.wood ? `<div class="chip">🪵 Wood: <b>${esc(rec.wood)}</b></div>` : ""}
+      ${rec.smokerTemp ? `<div class="chip">🌡️ Smoker: <b>${esc(rec.smokerTemp)}</b></div>` : ""}
+      ${rec.pullTemp ? `<div class="chip">🎯 Pull: <b>${esc(rec.pullTemp)}</b></div>` : ""}
+      ${rec.rest ? `<div class="chip">😴 Rest: <b>${esc(rec.rest)}</b></div>` : ""}
+    </div>
+    <div class="rec-grid">
+      <div class="rec-box rub"><h3>🧂 What you'll need</h3>${ing.length ? `<ul>${ing.map(x => `<li>${esc(x)}</li>`).join("")}</ul>` : `<div class="td" style="color:var(--text-faint)">No ingredients listed.</div>`}</div>
+      <div class="rec-box"><h3>🔥 The cook</h3>${steps.length ? `<ol>${steps.map(x => `<li>${esc(x)}</li>`).join("")}</ol>` : `<div class="td" style="color:var(--text-faint)">No steps listed.</div>`}
+        ${rec.serve ? `<div class="serve-line">🍽️ <b>To serve:</b> ${esc(rec.serve)}</div>` : ""}</div>
+    </div>
+    <div class="row-actions" style="margin-top:18px">
+      ${rec.baseCut && MEATS[rec.baseCut] ? `<button class="mini-btn" id="planThisCustom">⏱️ Plan a cook like this →</button>` : ""}
+      <button class="mini-btn" id="editCustom">✏️ Edit</button>
+      <button class="mini-btn" id="delCustom">🗑️ Delete</button>
+    </div>`;
+  if (rec.baseCut && MEATS[rec.baseCut]) $("planThisCustom").addEventListener("click", () => { selectMeat(rec.baseCut); switchTab("planner"); });
+  $("editCustom").addEventListener("click", () => openAddRecipe(rec));
+  $("delCustom").addEventListener("click", () => {
+    if (!confirm("Delete this recipe?")) return;
+    customRecipes = customRecipes.filter(x => x.id !== id); saveLS(LS_RECIPES, customRecipes);
+    refreshAll(); $("recipeSelect").value = "brisket"; renderRecipe();
+  });
+}
+
+function openAddRecipe(rec) {
+  rec = rec || {};
+  const groups = ["Beef", "Poultry", "Lamb", "Seafood", "Other"];
+  const baseOpts = ORDER.map(k => `<option value="${k}" ${rec.baseCut === k ? "selected" : ""}>${MEATS[k].emoji} ${MEATS[k].label}</option>`).join("");
+  openModal(`
+    <div class="modal-head"><div class="e">📖</div><div><div class="kicker">${rec.id ? "Edit recipe" : "Add your own recipe"}</div><div class="ttl">${rec.id ? esc(rec.name) : "New recipe"}</div></div></div>
+    <div class="mform">
+      <label>Recipe name</label>
+      <input id="f_name" value="${esc(rec.name || "")}" placeholder="e.g. Dad's coffee-rubbed brisket" />
+      <div class="mrow">
+        <div><label>Category</label><select id="f_group">${groups.map(g => `<option ${rec.group === g ? "selected" : ""}>${g}</option>`).join("")}</select></div>
+        <div><label>Emoji</label><input id="f_emoji" value="${esc(rec.emoji || "🍖")}" /></div>
+      </div>
+      <div class="mrow">
+        <div><label>Smoker temp</label><input id="f_temp" value="${esc(rec.smokerTemp || "")}" placeholder="225°F" /></div>
+        <div><label>Pull temp</label><input id="f_pull" value="${esc(rec.pullTemp || "")}" placeholder="203°F" /></div>
+      </div>
+      <div class="mrow">
+        <div><label>Wood</label><input id="f_wood" value="${esc(rec.wood || "")}" placeholder="Oak, Hickory" /></div>
+        <div><label>Rest</label><input id="f_rest" value="${esc(rec.rest || "")}" placeholder="1 hour" /></div>
+      </div>
+      <label>Cooks like… (links it to the Cook Planner timeline — optional)</label>
+      <select id="f_base"><option value="">— none —</option>${baseOpts}</select>
+      <label>Ingredients / rub (one per line)</label>
+      <textarea id="f_ing" rows="4" placeholder="1/2 cup kosher salt&#10;1/2 cup coarse black pepper">${esc((rec.ingredients || []).join("\n"))}</textarea>
+      <label>Steps (one per line)</label>
+      <textarea id="f_steps" rows="5" placeholder="Trim the fat cap&#10;Season heavily&#10;Smoke at 225°F until 203°F…">${esc((rec.steps || []).join("\n"))}</textarea>
+      <label>To serve (optional)</label>
+      <input id="f_serve" value="${esc(rec.serve || "")}" placeholder="Slice against the grain" />
+      <button class="modal-btn" id="f_save">${rec.id ? "Save changes" : "Save recipe"}</button>
+    </div>`);
+  $("f_save").addEventListener("click", () => {
+    const name = $("f_name").value.trim();
+    if (!name) { $("f_name").focus(); return; }
+    const obj = {
+      id: rec.id || uid("r"), custom: true, name,
+      emoji: $("f_emoji").value.trim() || "🍖", group: $("f_group").value,
+      smokerTemp: $("f_temp").value.trim(), pullTemp: $("f_pull").value.trim(),
+      wood: $("f_wood").value.trim(), rest: $("f_rest").value.trim(), baseCut: $("f_base").value,
+      ingredients: $("f_ing").value.split("\n").map(s => s.trim()).filter(Boolean),
+      steps: $("f_steps").value.split("\n").map(s => s.trim()).filter(Boolean),
+      serve: $("f_serve").value.trim()
+    };
+    if (rec.id) customRecipes = customRecipes.map(x => x.id === rec.id ? obj : x);
+    else customRecipes.push(obj);
+    saveLS(LS_RECIPES, customRecipes); closeModal(); refreshAll();
+    $("recipeSelect").value = "custom:" + obj.id; renderRecipe(); switchTab("recipes");
+  });
+}
+
+function backupObject() { return { app: "dads-bbq", exportedAt: new Date().toISOString(), recipes: customRecipes, log: cookLog }; }
+function openImportExport() {
+  openModal(`
+    <div class="modal-head"><div class="e">📂</div><div><div class="kicker">Recipes &amp; cook log</div><div class="ttl">Backup, import &amp; share</div></div></div>
+    <div class="modal-body-text" style="margin-bottom:16px">Your recipes and cook log live on this device. Export a backup to keep them safe or move them to another phone — and import one back here anytime.</div>
+    <div class="row-actions">
+      <button class="mini-btn" id="ie_export">⬇️ Export backup file</button>
+      <button class="mini-btn" id="ie_copy">📋 Copy backup text</button>
+      <button class="mini-btn" id="ie_file">⬆️ Import a file</button>
+    </div>
+    <label style="display:block;margin:18px 0 6px;font-weight:700;color:var(--text-dim);font-size:13px">…or paste a backup / recipe here</label>
+    <textarea id="ie_paste" rows="4" class="mform" style="width:100%;background:var(--bg-soft);border:1px solid var(--border);color:var(--text);border-radius:10px;padding:11px 13px;font-size:14px" placeholder="Paste exported text, or a recipe in plain text (first line = name)"></textarea>
+    <button class="modal-btn" id="ie_paste_go">Import pasted text</button>`);
+  $("ie_export").addEventListener("click", exportBackup);
+  $("ie_copy").addEventListener("click", copyBackup);
+  $("ie_file").addEventListener("click", () => $("importFile").click());
+  $("ie_paste_go").addEventListener("click", () => importText($("ie_paste").value));
+}
+function exportBackup() {
+  const blob = new Blob([JSON.stringify(backupObject(), null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a"); a.href = url; a.download = "dads-bbq-backup.json";
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1500);
+}
+function copyBackup() {
+  const txt = JSON.stringify(backupObject(), null, 2);
+  if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(txt).then(() => alert("Backup copied to clipboard."), () => fallbackCopy(txt));
+  else fallbackCopy(txt);
+}
+function fallbackCopy(txt) { const ta = document.createElement("textarea"); ta.value = txt; document.body.appendChild(ta); ta.select(); try { document.execCommand("copy"); alert("Backup copied."); } catch (e) { alert("Couldn't auto-copy — select the text and copy it manually."); } ta.remove(); }
+function handleImportFile(e) { const f = e.target.files[0]; if (!f) return; const r = new FileReader(); r.onload = () => { importText(r.result); e.target.value = ""; }; r.readAsText(f); }
+function importText(txt) {
+  txt = (txt || "").trim(); if (!txt) return;
+  let data = null; try { data = JSON.parse(txt); } catch (e) {}
+  if (data && typeof data === "object") {
+    let added = 0;
+    const recs = Array.isArray(data) ? data : (Array.isArray(data.recipes) ? data.recipes : []);
+    recs.forEach(r => { if (r && r.name) { r.id = r.id || uid("r"); r.custom = true; if (!customRecipes.some(x => x.id === r.id)) { customRecipes.push(r); added++; } } });
+    if (Array.isArray(data.log)) data.log.forEach(l => { if (l && l.title) { l.id = l.id || uid("l"); if (!cookLog.some(x => x.id === l.id)) cookLog.push(l); } });
+    saveLS(LS_RECIPES, customRecipes); saveLS(LS_LOG, cookLog); closeModal(); refreshAll();
+    alert("Imported successfully." + (added ? " " + added + " recipe(s) added." : ""));
+  } else {
+    const lines = txt.split("\n").map(s => s.trim()).filter(Boolean);
+    const rec = { id: uid("r"), custom: true, name: lines[0] || "Imported recipe", emoji: "🍖", group: "Other", ingredients: [], steps: lines.slice(1), wood: "", smokerTemp: "", pullTemp: "", rest: "", serve: "" };
+    customRecipes.push(rec); saveLS(LS_RECIPES, customRecipes); closeModal(); refreshAll();
+    $("recipeSelect").value = "custom:" + rec.id; renderRecipe(); switchTab("recipes");
+    alert("Imported as a recipe — tap Edit to tidy it up.");
+  }
+}
+
+function fmtLogDate(d) { if (!d) return ""; const dt = new Date(d + "T00:00:00"); return isNaN(dt) ? d : dt.toLocaleDateString([], { weekday: "short", month: "short", day: "numeric", year: "numeric" }); }
+function buildLog() {
+  const list = $("logList");
+  if (!cookLog.length) { list.innerHTML = `<div class="empty-log">📓 No cooks logged yet.<br>After your next cook, tap <b>“Log a cook”</b> to record what you made and what you learned.</div>`; return; }
+  const sorted = [...cookLog].sort((a, b) => (b.date || "").localeCompare(a.date || "") || (b.id > a.id ? 1 : -1));
+  list.innerHTML = sorted.map(e => `
+    <div class="log-card">
+      <div class="log-top">
+        <div><div class="log-title">${esc(e.title || "Cook")}</div><div class="log-date">${fmtLogDate(e.date)}</div></div>
+        <div class="log-rating">${"★".repeat(e.rating || 0)}${"☆".repeat(5 - (e.rating || 0))}</div>
+      </div>
+      <div class="log-chips">${[e.weight ? "⚖️ " + esc(e.weight) : "", e.wood ? "🪵 " + esc(e.wood) : "", e.temp ? "🌡️ " + esc(e.temp) : ""].filter(Boolean).map(c => `<span>${c}</span>`).join("")}</div>
+      ${e.notes ? `<div class="log-notes">${esc(e.notes)}</div>` : ""}
+      <div class="row-actions"><button class="mini-btn" data-log-recipe="${e.id}">📖 Save as recipe</button><button class="mini-btn" data-log-del="${e.id}">🗑️ Delete</button></div>
+    </div>`).join("");
+  list.querySelectorAll("[data-log-del]").forEach(b => b.addEventListener("click", () => {
+    if (!confirm("Delete this log entry?")) return;
+    cookLog = cookLog.filter(x => x.id !== b.dataset.logDel); saveLS(LS_LOG, cookLog); refreshAll();
+  }));
+  list.querySelectorAll("[data-log-recipe]").forEach(b => b.addEventListener("click", () => {
+    const e = cookLog.find(x => x.id === b.dataset.logRecipe);
+    openAddRecipe({ name: e.title, group: "Other", wood: e.wood || "", smokerTemp: e.temp || "", steps: e.notes ? [e.notes] : [] });
+  }));
+}
+function openLogEntry() {
+  const names = ORDER.map(k => MEATS[k].label).concat(customRecipes.map(r => r.name));
+  const t = new Date(), p = n => String(n).padStart(2, "0");
+  const today = `${t.getFullYear()}-${p(t.getMonth() + 1)}-${p(t.getDate())}`;
+  openModal(`
+    <div class="modal-head"><div class="e">📓</div><div><div class="kicker">Cook log</div><div class="ttl">Log a cook</div></div></div>
+    <div class="mform">
+      <label>What did you cook?</label>
+      <input id="l_title" list="cutlist" placeholder="e.g. Brisket" />
+      <datalist id="cutlist">${names.map(n => `<option value="${esc(n)}"></option>`).join("")}</datalist>
+      <div class="mrow">
+        <div><label>Date</label><input type="date" id="l_date" value="${today}" /></div>
+        <div><label>Rating</label><div class="stars" id="l_stars"></div></div>
+      </div>
+      <div class="mrow">
+        <div><label>Weight</label><input id="l_weight" placeholder="13 lbs" /></div>
+        <div><label>Wood</label><input id="l_wood" placeholder="Oak" /></div>
+      </div>
+      <label>Smoker temp</label><input id="l_temp" placeholder="225°F" />
+      <label>Notes &amp; lessons learned</label>
+      <textarea id="l_notes" rows="4" placeholder="What worked, what you'd change next time…"></textarea>
+      <button class="modal-btn" id="l_save">Save to log</button>
+    </div>`);
+  let rating = 0;
+  const drawStars = () => {
+    $("l_stars").innerHTML = [1, 2, 3, 4, 5].map(i => `<span data-s="${i}">${i <= rating ? "★" : "☆"}</span>`).join("");
+    $("l_stars").querySelectorAll("[data-s]").forEach(s => s.addEventListener("click", () => { rating = +s.dataset.s; drawStars(); }));
+  };
+  drawStars();
+  $("l_save").addEventListener("click", () => {
+    const title = $("l_title").value.trim();
+    if (!title) { $("l_title").focus(); return; }
+    cookLog.push({ id: uid("l"), title, date: $("l_date").value, rating, weight: $("l_weight").value.trim(), wood: $("l_wood").value.trim(), temp: $("l_temp").value.trim(), notes: $("l_notes").value.trim() });
+    saveLS(LS_LOG, cookLog); closeModal(); refreshAll(); switchTab("cooklog");
+  });
+}
 
 /* ===================== TIMER ===================== */
 function initTimer() {
